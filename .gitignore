@@ -1,2 +1,8 @@
 *.pyc
+.spyproject/
+.idea/
+__pycache__/
+notes/
+tests/
+scratch*.py
 
