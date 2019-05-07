@@ -1,0 +1,11 @@
+
+DOCUMENTATION FOR OOI_GLIDERDAC
+
+* if m_depth_state is included in the data file, this code will include hovering
+ as a profile for those deployments that may have a hover built into the mission
+ if they include significant lengths of science data in them .  This would also
+ include time on the surface if there are significant lengths of science data
+ in them.  The caveat to this is that any user that automatically assumes that
+ a profile means a dive or a climb might run into trouble.  However, I think
+ the worst of this is that a script might produce some plots with a lot of
+ data aggregated to a small depth range.

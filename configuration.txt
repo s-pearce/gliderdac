@@ -1,0 +1,49 @@
+A document to describe how to configure the glider dac software.
+2019-04-08 Stuart Pearce
+version 0.1
+
+
+dba_file_sorter.py
+    * has a sort function that uses a regex that follows OOI or Slocum glider
+    data convention.  Regex must be changed if filename format is different
+    * nevermind, the sorter function seems like it needs to be unique to the
+    filename convention
+
+profile_filters.py
+    * these functions are filtering functions to separate out profiles and
+    ultimately remove them based on:
+        1. no science data present within the profile
+        2. science data ratio (length of time of science data compared to length
+         of time of the whole profile) is smaller than a threshold (default is
+         1%)
+        3. total length of science data time is less than a threshold (default 5
+         minutes)
+    * these are changeable, or can add your own to this file as long as the
+    function name has the prefix "filter_" since the code that filters
+    them finds all the functions in this module that have that prefix.
+        * input to a new filter function must be a GliderData object instance
+        that is a profile.  The GliderData class is coded in data_classes if you
+        need to see how the methods and attributes available to that object.
+
+## These below have yet to be implemented ##
+
+configuration.py
+    * edit configurations in this file. There is a global config, and then a
+    local master config and then deployment config.  Each lower level overwrites
+    the higher level one.
+
+global_attributes.json
+    * similar to above, there is a default one, and there can be a deployment
+    one that overwrites any default ones
+
+sensor_defs.json
+    * similar to above, there is a default one, and there can be a deployment
+    one that overwrites any default ones
+
+deployment.json
+    * similar to above, there is a global one, but there must be a deployment
+    specific one too.
+
+instrument.json
+    * similar to above, there is a global one, but there must be a deployment
+    specific one too.

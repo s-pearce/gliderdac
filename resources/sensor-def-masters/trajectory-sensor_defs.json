@@ -1,0 +1,104 @@
+{
+    "obs" : {
+        "nc_var_name" : "obs",
+        "type" : "f8",
+        "is_dimension" : true,
+        "dimension_length" : null
+    },
+    "llat_time": {
+        "attrs": {
+            "axis": "T", 
+            "calendar": "gregorian", 
+            "standard_name": "time", 
+            "units": "seconds since 1970-01-01T00:00:00Z", 
+            "valid_max": 2147483647, 
+            "valid_min": 0
+        }, 
+        "dimension": "obs", 
+        "nc_var_name": "time", 
+        "type": "f8"
+    }, 
+    "llat_pressure": {
+        "attrs": {
+            "axis": "Z", 
+            "long_name": "CTD Pressure", 
+            "observation_type": "measured", 
+            "positive": "down", 
+            "reference_datum": "sea-surface", 
+            "standard_name": "sea_water_pressure", 
+            "units": "bar", 
+            "valid_max": 2000.0, 
+            "valid_min": 0.0
+        }, 
+        "dimension": "obs", 
+        "nc_var_name": "pressure", 
+        "type": "f4"
+    }, 
+    "llat_depth": {
+        "attrs": {
+            "axis": "Z", 
+            "long_name": "CTD Depth", 
+            "observation_type": "calculated", 
+            "positive": "down", 
+            "reference_datum": "sea-surface", 
+            "standard_name": "sea_water_depth", 
+            "units": "meters", 
+            "valid_max": 2000.0, 
+            "valid_min": 0.0
+        }, 
+        "dimension": "obs", 
+        "nc_var_name": "depth", 
+        "type": "f4"
+    }, 
+    "llat_latitude" : {
+        "nc_var_name" : "latitude",
+        "type" : "f8",
+        "dimension" : "obs",
+        "attrs" : {
+            "units" : "degree_north",
+            "precision" : 5,
+            "axis" : "Y",
+            "observation_type" : "calculated",
+            "long_name" : "Latitude",
+            "valid_min" : -90.0,
+            "valid_max" : 90.0,
+            "standard_name" : "latitude"
+        }
+    },
+    "llat_longitude" : {
+        "nc_var_name" : "longitude",
+        "type" : "f8",
+        "dimension" : "obs",
+        "attrs" : {
+            "units" : "degree_east",
+            "precision" : 5,
+            "axis" : "Y",
+            "observation_type" : "calculated",
+            "long_name" : "Longitude",
+            "valid_min" : -180.0,
+            "valid_max" : 180.0,
+            "standard_name" : "longitude"
+        }
+    },
+    "crs" : {
+        "nc_var_name" : "crs",
+        "dimension": null,
+        "type": "i4",
+        "attrs": {
+            "epsg_code": "EPSG:4326",
+            "grid_mapping_name": "latitude_longitude",
+            "inverse_flattening" : 298.257223563,
+            "long_name": "http://www.opengis.net/def/crs/EPSG/0/4326",
+            "semi_major_axis": 6378137.0
+        }
+
+    },
+    "platform": {
+        "nc_var_name": "platform",
+        "dimension": null,
+        "type": "i4",
+        "attrs": {
+            "ancillary_variables" : " "
+        }
+    }
+}
