@@ -4,9 +4,10 @@ import numpy as np
 import logging
 import os
 
-from ooidac import clean_dataset, boxcar_smooth_dataset
+from ooidac import boxcar_smooth_dataset
 
 from ooidac.utilities import fwd_fill
+from ooidac.processing import all_sci_indices
 import profile_filters
 # import pdb
 
@@ -101,45 +102,61 @@ class Profiles(object):
 
         # validate_glider_args(timestamps, depth)
 
-        est_data = np.column_stack((
-            timestamps,
-            depth
-        ))
+        # Set negative depth values to NaN; using this method to avoid numpy
+        # warnings from < when nans are in the array
+        depth_ii = np.flatnonzero(np.isfinite(depth))  # non-nan indices
+        neg_depths = np.flatnonzero(depth[depth_ii] <= 0)  # indices to depth_ii
+        depth[depth_ii[neg_depths]] = np.nan
 
-        # Set negative depth values to NaN
-        # Todo: fix so this doesn't print a warning
-        est_data[np.any(est_data <= 0, axis=1), :] = float('nan')
+        # Remove NaN depths and truncate to when science data begins being
+        # recorded and ends
+        depth_ii = np.flatnonzero(np.isfinite(depth))
+        sci_indices = all_sci_indices(self.dba)  # from ooidac.processing
+        if len(sci_indices) > 0:
+            starting_index = sci_indices[0]
+            ending_index = sci_indices[-1]
+        else:
+            starting_index = 0
+            ending_index = len(timestamps) - 1
 
-        # Remove NaN rows
-        est_data = clean_dataset(est_data)
-        if len(est_data) < 2:
-            logger.debug('Skipping yo that contains < 2 rows')
+        depth_ii = depth_ii[
+            np.logical_and(
+                depth_ii > starting_index,
+                depth_ii < ending_index)
+        ]
+
+        depth = depth[depth_ii]
+        ts = timestamps[depth_ii]
+
+        if len(depth) < 2:
+            logger.debug('Skipping segment that contains < 2 rows of depth')
             return profile_indexes
 
         # Create the fixed timestamp array from the min timestamp to the max
         # timestamp spaced by tsint intervals
-        min_ts = est_data[:, 0].min()
-        max_ts = est_data[:, 0].max()
+        min_ts = ts.min()
+        max_ts = ts.max()
         if max_ts - min_ts < tsint:
-            logger.warning('Not enough timestamps for yo interpolation')
+            logger.warning('Not enough timestamps for depth interpolation '
+                           'for profile discovery')
             return profile_indexes
 
-        ts = np.arange(min_ts, max_ts, tsint)
+        interp_ts = np.arange(min_ts, max_ts, tsint)
         # Stretch estimated values for interpolation to span entire dataset
         interp_z = np.interp(
+            interp_ts,
             ts,
-            est_data[:, 0],
-            est_data[:, 1],
-            left=est_data[0, 1],
-            right=est_data[-1, 1]
+            depth,
+            left=depth[0],
+            right=depth[-1]
         )
 
         filtered_z = boxcar_smooth_dataset(interp_z, int(tsint / 2))
 
         delta_depth = calculate_delta_depth(filtered_z)
-        dts = ts[:-1] + tsint / 2
+        dts = interp_ts[:-1] + tsint / 2
 
-        inflections = np.where(np.diff(delta_depth) != 0)[0]
+        inflections = np.where(np.diff(delta_depth) != 0)[0] + 1
         if not inflections.any():
             return profile_indexes
 

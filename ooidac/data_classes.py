@@ -214,7 +214,7 @@ class GliderData(object):
             finites = np.flatnonzero(np.isfinite(depth))
             self.depth = np.interp(
                 self.ts, self.ts[finites], depth[finites],
-                left=0.0, right=0.0)
+                left=depth[finites[0]], right=depth[finites[-1]])
         else:
             self.depth = depth
 

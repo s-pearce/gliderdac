@@ -11,9 +11,8 @@ import shutil
 import glob
 # temporary addition to test this script -SP 2019-01-30 to be able to load
 # gncutils -SP 2019-03-11 Maybe don't need after all.  We'll see.
-sys.path.append('C:\\Users\\spearce\\code\\python\\gliderdac\\')
-from ooidac.writers.slocum.ooi_ProfileNetCDFWriter import \
-    ProfileNetCDFWriter
+# sys.path.append('C:\\Users\\spearce\\code\\python\\gliderdac\\')
+from ooidac.writers.netCDFwriter import NetCDFWriter
 
 from ooidac.constants import NETCDF_FORMATS, LLAT_SENSORS
 from ooidac.validate import validate_sensors, validate_ngdac_var_names
@@ -81,9 +80,10 @@ def main(args):
         return 1
 
     # Create the Trajectory NetCDF writer
-    ncw = ProfileNetCDFWriter(config_path, comp_level=comp_level,
-                              nc_format=nc_format, profile_id=start_profile_id,
-                              clobber=clobber)
+    ncw = NetCDFWriter(
+        config_path, comp_level=comp_level,
+        nc_format=nc_format, profile_id=start_profile_id,
+        clobber=clobber)
     # Make sure we have llat_* sensors defined in ncw.nc_sensor_defs
     ctd_valid = validate_sensors(ncw.nc_sensor_defs, ctd_sensors)
     if not ctd_valid:
@@ -282,7 +282,7 @@ def main(args):
 
             # Create variables and add data
             for var_name in dba.sensor_names:
-                var_data = dba[var_name]['data'][profile_ii]
+                var_data = dba[var_name]['data']
                 logging.debug('Inserting {:s} data array'.format(var_name))
                 ncw.insert_var_data(var_name, var_data)
 

@@ -9,10 +9,12 @@ from ooidac.data_classes import DbaData
 from ooidac.readers.slocum import parse_dba_header
 from ooidac.utilities import fwd_fill
 from ooidac.ctd import calculate_practical_salinity, calculate_density
+from ooidac.processing_dir.fluorometer import flo_bback_total
 from ooidac.constants import (
     SLOCUM_TIMESTAMP_SENSORS,
     SLOCUM_PRESSURE_SENSORS,
     SLOCUM_DEPTH_SENSORS)
+from configuration import DATA_CONFIG_LIST
 
 logger = logging.getLogger(os.path.basename(__name__))
 
@@ -568,3 +570,66 @@ def o2_s_and_p_comp(dba):
     dba.add_data(oxygen)
 
     return dba
+
+
+def backscatter_total(gldata):
+    """
+
+    :param gldata:
+    :return:
+    """
+    backscatter_particle = gldata['sci_flbbcd_bb_units']
+    beta = backscatter_particle['data'].copy()
+    backscatter_particle['data'] = np.full(len(beta), np.nan)
+    beta_ii = np.isfinite(beta)
+    timestamps = gldata.getdata('m_present_time')
+    beta_ts = timestamps[beta_ii]
+    beta = beta[beta_ii]
+    temp = gldata.getdata('sci_water_temp')
+    salt = gldata.getdata('salinity')
+
+    temp_bt = np.interp(
+        beta_ts, timestamps[np.isfinite(temp)],temp[np.isfinite(temp)])
+    salt_bt = np.interp(
+        beta_ts, timestamps[np.isfinite(salt)],salt[np.isfinite(salt)])
+
+    theta = 124.0
+    wlngth = 700.0
+    xfactor = 1.076
+
+    bback = flo_bback_total(beta, temp_bt, salt_bt, theta, wlngth, xfactor)
+
+    backscatter_particle['data'][beta_ii] = bback
+    backscatter_particle['sensor_name'] = 'backscatter'
+    backscatter_particle['attrs']['units'] = 'm-1'
+
+    gldata.add_data(backscatter_particle)
+    return gldata
+
+
+def reduce_to_sci_data(gldata):
+    """Reduces a GliderData instance to timestamps that only exhibit at least
+    one measurement of science instrument data as determined by the
+    configuration parameter DATA_CONFIG_LIST
+
+    :param gldata: A GliderData instance
+    :return: A new GliderData instance reduced to only science data
+    """
+    sci_indices = all_sci_indices(gldata)
+
+    reduced_gldata = gldata.slicedata(indices=sci_indices)
+    return reduced_gldata
+
+
+def all_sci_indices(gldata):
+    """
+
+    :param gldata: A GliderData instance
+    :return:
+    """
+    sci_indices = np.array([], dtype=np.int64)
+    for sci_sensor in DATA_CONFIG_LIST:
+        sci_data = gldata.getdata(sci_sensor)
+        sci_ii = np.flatnonzero(np.isfinite(sci_data))
+        sci_indices = np.union1d(sci_indices, sci_ii)
+    return sci_indices
