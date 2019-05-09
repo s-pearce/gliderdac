@@ -139,9 +139,11 @@ class NetCDFWriter(object):
         # create a temporary directory to hold temporary files during writing
         # these are moved to the final output directory upon completion without
         # errors
-        self._tmp_dir = os.path.join(tempfile.gettempdir(), "GliderDAC")
-        if not os.path.isdir(self._tmp_dir):
-            os.mkdir(self._tmp_dir)
+        self.tmp_dir = os.path.join(tempfile.gettempdir(), "GliderDAC")
+        if not os.path.isdir(self.tmp_dir):
+            os.mkdir(self.tmp_dir)
+        self._logger.debug('Temporary NetCDF directory: {:s}'.format(
+            self.tmp_dir))
 
         # ToDo: think about adding an __enter__ and __exit__ statement here
         #  so that if it crashes, it won't leave behind a temporary file.
@@ -1421,7 +1423,7 @@ class NetCDFWriter(object):
             filetype)
         # Path to temporarily hold file while we create it
         tmp_fid, tmp_nc = tempfile.mkstemp(
-            dir=self._tmp_dir, suffix='.nc',
+            dir=self.tmp_dir, suffix='.nc',
             prefix=os.path.basename(profile_filename)
         )
         os.close(tmp_fid)

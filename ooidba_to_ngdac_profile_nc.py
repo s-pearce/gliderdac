@@ -4,8 +4,6 @@ import os
 import sys
 import logging
 import argparse
-import tempfile
-import datetime
 import shutil
 # import pdb
 import glob
@@ -16,11 +14,12 @@ from ooidac.writers.netCDFwriter import NetCDFWriter
 
 from ooidac.constants import NETCDF_FORMATS, LLAT_SENSORS
 from ooidac.validate import validate_sensors, validate_ngdac_var_names
-import numpy as np
 
-import ooidac.processing as process_dba
+import ooidac.processing as processing
 from ooidac.data_classes import DbaData
 from ooidac.profiles import Profiles
+from ooidac.data_checks import check_file_goodness, check_for_dav_sensors
+from ooidac.constants import SCI_CTD_SENSORS
 from dba_file_sorter import sort_function
 
 
@@ -81,7 +80,7 @@ def main(args):
 
     # Create the Trajectory NetCDF writer
     ncw = NetCDFWriter(
-        config_path, comp_level=comp_level,
+        config_path, output_path, comp_level=comp_level,
         nc_format=nc_format, profile_id=start_profile_id,
         clobber=clobber)
     # Make sure we have llat_* sensors defined in ncw.nc_sensor_defs
@@ -104,8 +103,7 @@ def main(args):
 
     # Create a temporary directory for creating/writing NetCDF prior to
     # moving them to output_path
-    tmp_dir = tempfile.mkdtemp()
-    logging.debug('Temporary NetCDF directory: {:s}'.format(tmp_dir))
+    # tmp_dir = tempfile.mkdtemp()  # tmp_dir now created in NetCDFWriter
 
     # Write one NetCDF file for each input file
     output_nc_files = []
@@ -125,40 +123,111 @@ def main(args):
             logging.warning('Skipping empty dba file: {:s}'.format(dba_file))
             continue
 
-        # Check on the "goodness" of the dba data file.  I.e. checks that
-        # there is any science data and discovers which timestamp to use and
-        # file_good = dba.check_goodness()
-        # if not file_good:
-        #     logging.warning(
-        #         ('The file {:s} does not have the needed '
-        #          'variables or data to proceed').format(dba_file)
-        #     )
-        #     continue
+        # check the data file for the required sensors and that science data
+        # exists in the file.  True or False returned.  See data_checks.py
+        file_good = check_file_goodness(dba)
+        if not file_good:
+            logging.warning(
+                'File {:s} either does not have enough science data or lacks '
+                'the required sensors to produce DAC formatted profiles'.format(
+                    dba.source_file)
+            )
+            continue
 
-        # %------ Process DBA ------%
-        # build the llat (longitude, latitude, altitude, time;
-        # i.e. x,y,z,t) variables for NetCDF coordinates
-        dba = process_dba.create_llat_sensors(dba)
+        # remove any sci bay intialization zeros that may occur (where all
+        # science instrument sensors are 0.0)
+        dba = processing.remove_initial_sci_zeros(dba)
 
-        # use conductivity, temperature, etc. to create salinity and density
-        # variables in the dba object
-        dba = process_dba.ctd_data(dba, ctd_sensors, ncw)
+        # This processing step adds time dependent coordinate variables
+        # (designated by the prefix llat [lat, lon, altitude, time]) which are
+        # created and added to the data instance with metadata attributes.
+        # This step is required before the other processing module steps.  The
+        # variable llat_time is derived from `m_present_time`,
+        # llat_latitude/longitude are filled by linear interpolation from
+        # `m_gps_lat/lon`, llat_pressure is derived from converting
+        # `sci_water_pressure` to dbar, and llat_depth is derived from
+        # `llat_pressure` converted to depth using the Python TEOS-10 GSW
+        # package
+        dba = processing.create_llat_sensors(dba)
 
-        # get the u and v water velocity components (it must come from the
-        # next seqment file as it is not processed until as segment is complete)
-        # TODO: put code here to get depth averaged water velocity. Also make
-        #  code to grab the median lat, lon, and time for the whole segment
-        #  to use for u and v. Maybe that code will be in process_dba or the
-        #  dba parsing class.
+        # Convert m_pitch and m_roll variables to degrees, and add back to
+        # the data instance with metadata attributes
+        if 'm_pitch' in dba.sensor_names and 'm_roll' in dba.sensor_names:
+            dba = processing.pitch_and_roll(dba)
 
-        # %------ Build Profiles ------%
-        # Use the `Profiles` class to find the inflection points and split
-        # the data into profiles
+        # Convert `sci_water_cond/temp/ & pressure` to `salinity` and `density`
+        # and adds them back to the data instance with metadata attributes.
+        # Requires `llat_latitude/longitude` variables are in the data
+        # instance from the `create_llat_sensors` method
+        dba = processing.ctd_data(dba, SCI_CTD_SENSORS, ncw)
+
+        # Process `sci_oxy4_oxygen` to OOI L2 compensated for salinity and
+        # pressure and converted to umol/kg.
+        if 'sci_oxy4_oxygen' in dba.sensor_names:
+            dba = processing.o2_s_and_p_comp(dba)
+
+        if 'sci_flbbcd_bb_units' in dba.sensor_names:
+            dba = processing.backscatter_total(dba)
+
+        # If any of the processing steps above fail, they return None
+        if dba is None:
+            continue
+
+        # If Depth Averaged Velocity (DAV) data available, (i.e. any of the
+        # `*_water_vx/vy` sensors are in the data) get the values and calculate
+        # the mean position and time of the segment as the postion and time
+        # for the velocity estimation
+        if check_for_dav_sensors(dba):
+            # get segment mean time, segment mean lat, and segment mean lon
+            # (underwater portion only)
+            seg_time, seg_lat, seg_lon = processing.get_segment_time_and_pos(
+                dba)
+
+            # if data is the recovered data, this tries to get
+            # `m_final_water_vx/vy` from the next 2 segment data files where
+            # the calculation occurs, if it cannot, it will get either
+            # `m_initial_water_vx/vy` or `m_water_vx/vy` from the current
+            # segement file.
+            dba_index = dba_files.index(dba_file)
+            next2files = dba_files[dba_index + 1:dba_index + 3]
+            vx, vy = processing.get_u_and_v(dba, check_files=next2files)
+
+            scalars = [seg_time, seg_lat, seg_lon, vx, vy]
+        else:
+            scalars = []
+
+        # create a config object
+        # create a nc_defs object
+        # create a global attributes object
+        # create an instruments object
+        # create a deployment object
+
+        # The Profiles class discovers the profiles and filters them based on
+        # user configurable filters written in profile_filters.py (Instructions
+        # found in the module) and returns each profile as a new GliderData
+        # instance that is the data subset of the main data instance
         profiles = Profiles(dba)
 
+        # ToDo: decide here if it is worth it to even use depth state any
+        #  more. Also it could potentially be rewritten with the cluser_index
+        #  function that might speed it up a little, although both functions
+        #  already run in the single digit milliseconds
+        # ToDo: it is found that by depth state, the profile starts too deep
+        #  (~4 m) and by depth has a starting profile arbitrarily after
+        #  whatever small dip occurs that originally ids as a profile.  So I
+        #  should add to the profile finding code to have it trim the beginning
+        #  to wherever the first science data point (not sc_m_present_time)
+        #  occurs. To keep generic, I must view the list of installed science
+        #  instruments and find the first point of any of them (after
+        #  dropping any initial zeros).  Any depth data before that first
+        #  point is dropped.  That can be the initial segment dive start (I
+        #  believe this works even if doing a surface data grab).  It worked
+        #  well for Kerfoot because he used sci_water_pressure.  Maybe I
+        #  should try using sci_water_pressure instead too.  Would that
+        #  help? profiles.find_profiles_by_depth_state()
         profiles.find_profiles_by_depth(10)
 
-        # applies the filter functions in profile_filters.py to filter profiles
+        # See profile_filters.py for which filters are applied
         profiles.filter_profiles()
 
         if len(profiles.indices) == 0:
@@ -188,118 +257,8 @@ def main(args):
 
         # %------ Write Profiles to NetCDF ------%
         for profile in profiles:
-            # TODO: re-write this section in terms of profile indices stored
-            profile_times = profile.getdata('llat_time')
-            # Calculate and convert profile mean time to a datetime
-            prof_start_time = float(profile_times[0])
-            mean_profile_epoch = float(np.nanmean([profile_times[0],
-                                                   profile_times[-1]]))
-            if np.isnan(mean_profile_epoch):
-                logging.warning('Profile mean timestamp is Nan')
-                continue
-            # If no start profile id was specified on the command line,
-            # use the mean_profile_epoch as the profile_id since it will be
-            # unique to this profile and deployment
-            if args.start_profile_id < 1:
-                ncw.profile_id = int(mean_profile_epoch)
-            pro_mean_dt = datetime.datetime.utcfromtimestamp(mean_profile_epoch)
-            prof_start_dt = datetime.datetime.utcfromtimestamp(prof_start_time)
-
-            # TODO: I feel like all of this should be a method of the writer.
-
-            # Create the output NetCDF path
-            pro_mean_ts = pro_mean_dt.strftime('%Y%m%dT%H%M%SZ')
-            prof_start_ts = prof_start_dt.strftime('%Y%m%dT%H%M%SZ')
-            if dba.file_metadata['filename_extension'] == 'dbd':
-                filetype = 'delayed'
-            elif dba.file_metadata['filename_extension'] == 'sbd':
-                filetype = 'rt'
-            else:
-                logging.warning(
-                    'Unknown filename extension {:s}, {:s}'.format(
-                        dba.source_file, dba.file_metadata['filename_extension']
-                    )
-                )
-                continue
-            profile_filename = '{:s}-{:s}-{:s}'.format(
-                ncw.attributes['deployment']['glider'], prof_start_ts,
-                filetype)
-            # Path to temporarily hold file while we create it
-            tmp_fid, tmp_nc = tempfile.mkstemp(
-                dir=tmp_dir, suffix='.nc',
-                prefix=os.path.basename(profile_filename)
-            )
-            os.close(tmp_fid)
-
-            out_nc_file = os.path.join(output_path, '{:s}.nc'.format(
-                profile_filename))
-            if os.path.isfile(out_nc_file):
-                if args.clobber:
-                    logging.info(
-                        'Clobbering existing NetCDF: {:s}'.format(out_nc_file))
-                else:
-                    logging.warning(
-                        'Skipping existing NetCDF: {:s}'.format(out_nc_file))
-                    continue
-
-            # Initialize the temporary NetCDF file
-            try:
-                ncw.init_nc(tmp_nc)
-            except (OSError, IOError) as e:
-                logging.error('Error initializing {:s}: {}'.format(tmp_nc, e))
-                continue
-
-            try:
-                ncw.open_nc()
-                # Add command line call used to create the file
-                ncw.update_history('{:s} {:s}'.format(sys.argv[0], dba_file))
-            except (OSError, IOError) as e:
-                logging.error('Error opening {:s}: {}'.format(tmp_nc, e))
-                os.unlink(tmp_nc)
-                continue
-
-            # Create and set the trajectory
-            # trajectory_string = '{:s}'.format(ncw.trajectory)
-            ncw.set_trajectory_id()
-            # Update the global title attribute with the name of the source
-            # dba file
-            ncw.set_title(
-                '{:s}-{:s} Vertical Profile'.format(
-                    ncw.deployment_configs['glider'],
-                    pro_mean_ts
-                )
-            )
-
-            # Create the source file scalar variable
-            ncw.set_source_file_var(
-                dba.file_metadata['filename_label'], dba.file_metadata)
-
-            # Update the self.nc_sensors_defs with the dba sensor definitions
-            ncw.update_data_file_sensor_defs(dba['sensors'])
-
-            # Find and set container variables
-            ncw.set_container_variables()
-
-            # Create variables and add data
-            for var_name in dba.sensor_names:
-                var_data = dba[var_name]['data']
-                logging.debug('Inserting {:s} data array'.format(var_name))
-                ncw.insert_var_data(var_name, var_data)
-
-            # Write scalar profile variable and permanently close the NetCDF
-            # file
-            nc_file = ncw.finish_nc()
-
-            if nc_file:
-                try:
-                    shutil.move(tmp_nc, out_nc_file)
-                    os.chmod(out_nc_file, 0o755)
-                except IOError as e:
-                    logging.error(
-                        'Error moving temp NetCDF file {:s}: {:}'.format(
-                            tmp_nc, e)
-                    )
-                    continue
+            profile = processing.reduce_to_sci_data(profile)
+            out_nc_file = ncw.write_profile(profile, scalars)
 
             output_nc_files.append(out_nc_file)
 
@@ -307,11 +266,13 @@ def main(args):
 
     # Delete the temporary directory once files have been moved
     try:
-        logging.debug('Removing temporary directory: {:s}'.format(tmp_dir))
-        shutil.rmtree(tmp_dir)
+        logging.debug('Removing temporary files:')
+        shutil.rmtree(ncw.tmp_dir)
     except OSError as e:
         logging.error(e)
-        return 1
+        logging.error('manually try to remove temporary directory {:s}'.format(
+            ncw.tmp_dir)
+        )
 
     # Print the list of files created
     for output_nc_file in output_nc_files:
