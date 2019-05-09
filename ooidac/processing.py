@@ -633,3 +633,25 @@ def all_sci_indices(gldata):
         sci_ii = np.flatnonzero(np.isfinite(sci_data))
         sci_indices = np.union1d(sci_indices, sci_ii)
     return sci_indices
+
+
+def remove_initial_sci_zeros(gldata):
+    """Sets values to NaNs where all primary science data sensors equal 0.0 at
+    a timestamp, such as might occur when a science bay initializes.
+    Primary science data sensors are defined by DATA_CONFIG_LIST in the
+    configuration file.
+
+    :param gldata: GliderData instance
+    :return: The same GliderData instance with any initialization zeros
+    changed to NaNs
+    """
+    zeros_ii = np.array([])
+    for sensor in DATA_CONFIG_LIST:
+        var = gldata.getdata(sensor)
+        if sensor == DATA_CONFIG_LIST[0]:
+            zeros_ii = np.flatnonzero(var == 0.0)
+        else:
+            var_zero_ii = np.flatnonzero(var == 0.0)
+            zeros_ii = np.intersect1d(zeros_ii, var_zero_ii)
+    gldata.update_data(DATA_CONFIG_LIST, zeros_ii, np.nan)
+    return gldata

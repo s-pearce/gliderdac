@@ -134,6 +134,32 @@ class GliderData(object):
         else:
             raise SensorError("Sensor {:s} is not available".format(item))
 
+    def getdataslice(self, items):
+        if isinstance(items, str):
+            items = [items]
+        idxs = []
+        for item in items:
+            if item in self._sensor_names:
+                idx = self._sensor_names.index(item)
+                idxs.append(idx)
+            else:
+                raise SensorError("Sensor {:s} is not available".format(item))
+        if len(idxs) == 1:
+            idxs = idxs[0]
+        return self._data[:, idxs]
+
+    def update_data(self, items, row_indices, values):
+        col_idxs = []
+        for item in items:
+            if item in self._sensor_names:
+                idx = self._sensor_names.index(item)
+                col_idxs.append(idx)
+            else:
+                raise SensorError("Sensor {:s} is not available".format(item))
+        # Don't want a try statement here, I want the np.array error to raise
+        # if `values` does not fit into the indices given
+        self._data[row_indices, col_idxs] = values
+
     def _get_dataparticle(self, item):
         if item in self._sensor_names:
             data_particle = self.sensors[item].copy()
