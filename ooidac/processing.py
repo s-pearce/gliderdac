@@ -653,5 +653,6 @@ def remove_initial_sci_zeros(gldata):
         else:
             var_zero_ii = np.flatnonzero(var == 0.0)
             zeros_ii = np.intersect1d(zeros_ii, var_zero_ii)
-    gldata.update_data(DATA_CONFIG_LIST, zeros_ii, np.nan)
+    if len(zeros_ii) > 0:
+        gldata.update_data(DATA_CONFIG_LIST, zeros_ii, np.nan)
     return gldata

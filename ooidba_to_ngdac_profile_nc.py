@@ -250,17 +250,13 @@ def main(args):
         #     logging.info('Skipping dba: {:s}'.format(dba_file))
         #     continue
 
-        # TODO: is this done elsewhere? Ans: yes in create_llat_sensors
-        # Calculate depth from pressure and replace the old llat_depth
-        # zi = [s['sensor_name'] for s in dba['sensors']].index('llat_depth')
-        # dba['data'][:, zi] = calculate_depth(ctd_data[:, 1], mean_lat)
-
         # %------ Write Profiles to NetCDF ------%
         for profile in profiles:
             profile = processing.reduce_to_sci_data(profile)
+            # ToDo: fix the history writer in NetCDFWriter
             out_nc_file = ncw.write_profile(profile, scalars)
-
-            output_nc_files.append(out_nc_file)
+            if out_nc_file:  # can be None if skipping
+                output_nc_files.append((dba_file, out_nc_file))
 
         processed_dbas.append(dba_file)
 
@@ -275,9 +271,12 @@ def main(args):
         )
 
     # Print the list of files created
+    sys.stdout.write('Profiles NC files written:\n')
     for output_nc_file in output_nc_files:
-        os.chmod(output_nc_file, 0o664)
-        sys.stdout.write('{:s}\n'.format(output_nc_file))
+        base_nc = os.path.basename(output_nc_file[1])
+        base_data = os.path.basename(output_nc_file[0])
+        os.chmod(output_nc_file[1], 0o664)
+        sys.stdout.write('\t{:s} -> {:s}\n'.format(base_data, base_nc))
 
     return 0
 

@@ -461,7 +461,7 @@ class NetCDFWriter(object):
         self.set_global_attributes()
 
         # Update global history attribute
-        self.update_history('{:s} created'.format(out_nc))
+        # self.update_history('{:s} created'.format(out_nc))
 
         # Create platform container variable
         self.set_platform()
@@ -1401,8 +1401,6 @@ class NetCDFWriter(object):
         pro_mean_dt = datetime.datetime.utcfromtimestamp(mean_profile_epoch)
         prof_start_dt = datetime.datetime.utcfromtimestamp(prof_start_time)
 
-        # TODO: I feel like all of this should be a method of the writer.
-
         # Create the output NetCDF path
         pro_mean_ts = pro_mean_dt.strftime('%Y%m%dT%H%M%SZ')
         prof_start_ts = prof_start_dt.strftime('%Y%m%dT%H%M%SZ')
@@ -1445,6 +1443,7 @@ class NetCDFWriter(object):
         except (OSError, IOError) as e:
             logging.error('Error initializing {:s}: {}'.format(tmp_nc, e))
             return
+        self.update_history('{:s} created'.format(profile_filename))
 
         try:
             self.open_nc()
