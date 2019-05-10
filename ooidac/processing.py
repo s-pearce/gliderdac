@@ -589,9 +589,9 @@ def backscatter_total(gldata):
     salt = gldata.getdata('salinity')
 
     temp_bt = np.interp(
-        beta_ts, timestamps[np.isfinite(temp)],temp[np.isfinite(temp)])
+        beta_ts, timestamps[np.isfinite(temp)], temp[np.isfinite(temp)])
     salt_bt = np.interp(
-        beta_ts, timestamps[np.isfinite(salt)],salt[np.isfinite(salt)])
+        beta_ts, timestamps[np.isfinite(salt)], salt[np.isfinite(salt)])
 
     theta = 124.0
     wlngth = 700.0

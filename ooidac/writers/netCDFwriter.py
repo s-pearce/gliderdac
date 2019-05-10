@@ -399,7 +399,7 @@ class NetCDFWriter(object):
         """Set the NetCDF global title attribute to title_string"""
         self._nc.title = title_string
 
-    def init_nc(self, out_nc):
+    def init_nc(self, tmp_out_nc, nc_filename):
         """Initialize a new NetCDF file (netCDF4.Dataset):
         
         1. Open the file in write mode
@@ -422,10 +422,10 @@ class NetCDFWriter(object):
 
         try:
             self._nc = Dataset(
-                out_nc, mode='w', clobber=True, format=self._nc_format)
+                tmp_out_nc, mode='w', clobber=True, format=self._nc_format)
         except OSError as e:
             self._logger.critical(
-                'Error initializing {:s} ({})'.format(out_nc, e)
+                'Error initializing {:s} ({})'.format(tmp_out_nc, e)
             )
             return
 
@@ -436,7 +436,7 @@ class NetCDFWriter(object):
         )
 
         # Store the NetCDF destination name
-        self._out_nc = out_nc
+        self._out_nc = tmp_out_nc
 
         # Write global attributes
         # Add date_created, date_modified, date_issued globals
@@ -461,7 +461,7 @@ class NetCDFWriter(object):
         self.set_global_attributes()
 
         # Update global history attribute
-        # self.update_history('{:s} created'.format(out_nc))
+        self.update_history('{:s}.nc created'.format(nc_filename))
 
         # Create platform container variable
         self.set_platform()
@@ -1439,11 +1439,10 @@ class NetCDFWriter(object):
 
         # Initialize the temporary NetCDF file
         try:
-            self.init_nc(tmp_nc)
+            self.init_nc(tmp_nc, profile_filename)
         except (OSError, IOError) as e:
             logging.error('Error initializing {:s}: {}'.format(tmp_nc, e))
             return
-        self.update_history('{:s} created'.format(profile_filename))
 
         try:
             self.open_nc()
