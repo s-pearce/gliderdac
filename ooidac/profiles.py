@@ -81,8 +81,8 @@ class Profiles(object):
         Use filter_yo_extrema to remove invalid/incomplete profiles
         """
 
-        # Create Nx2 numpy array of profile start/stop times - kerfoot method
-        profile_indexes = []
+        # Create list of profile indices - pearce / kerfoot method
+        self._indices = []
 
         timestamps = (self.dba['llat_time'] or self.dba['m_present_time'])
         timestamps = timestamps['data']
@@ -95,7 +95,7 @@ class Profiles(object):
                 logging.warning('no depth source found in dba {:s}'.format(
                     self.dba.source_file)
                 )
-                return profile_indexes
+                return
             depth = self.dba['llat_depth']['data']
         else:
             depth = self.dba['m_depth']['data']
@@ -130,7 +130,7 @@ class Profiles(object):
 
         if len(depth) < 2:
             logger.debug('Skipping segment that contains < 2 rows of depth')
-            return profile_indexes
+            return
 
         # Create the fixed timestamp array from the min timestamp to the max
         # timestamp spaced by tsint intervals
@@ -139,7 +139,7 @@ class Profiles(object):
         if max_ts - min_ts < tsint:
             logger.warning('Not enough timestamps for depth interpolation '
                            'for profile discovery')
-            return profile_indexes
+            return
 
         interp_ts = np.arange(min_ts, max_ts, tsint)
         # Stretch estimated values for interpolation to span entire dataset
@@ -158,7 +158,7 @@ class Profiles(object):
 
         inflections = np.where(np.diff(delta_depth) != 0)[0] + 1
         if not inflections.any():
-            return profile_indexes
+            return
 
         # timestamp associated with diff of delta_depth (i.e. the timestamp of
         # the 2nd derivative of depth timestamp)
@@ -169,7 +169,7 @@ class Profiles(object):
         # get the first profile indices manually so that it gets all of the
         # data up to the first inflection including the inflection
         profile_i = np.flatnonzero(timestamps <= inflection_times[0])
-        profile_indexes.append(profile_i)
+        self._indices.append(profile_i)
 
         # then iterate over the inflection times and get each profile indices
         # excluding the preceding inflection and including the ending inflection
@@ -184,15 +184,12 @@ class Profiles(object):
             )
             if len(profile_i) == 0:
                 continue
-            profile_indexes.append(profile_i)
+            self._indices.append(profile_i)
 
         # lastly get the last profile manually again from the last inflection
         # time to the end of the dataset
         profile_i = np.flatnonzero(timestamps > inflection_times[-1])
-        profile_indexes.append(profile_i)
-
-        # return profiled_indices
-        self._indices = profile_indexes
+        self._indices.append(profile_i)
 
     def find_profiles_by_depth_state(self):
         """Returns the start and stop timestamps for every profile indexed from
