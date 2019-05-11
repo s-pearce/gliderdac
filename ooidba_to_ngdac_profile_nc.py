@@ -21,7 +21,7 @@ from ooidac.profiles import Profiles
 from ooidac.data_checks import check_file_goodness, check_for_dav_sensors
 from ooidac.constants import SCI_CTD_SENSORS
 from dba_file_sorter import sort_function
-import pdb
+
 
 def main(args):
     """Parse one or more Slocum glider ascii dba files and write IOOS
