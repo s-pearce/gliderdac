@@ -21,7 +21,7 @@ from ooidac.profiles import Profiles
 from ooidac.data_checks import check_file_goodness, check_for_dav_sensors
 from ooidac.constants import SCI_CTD_SENSORS
 from dba_file_sorter import sort_function
-
+import pdb
 
 def main(args):
     """Parse one or more Slocum glider ascii dba files and write IOOS
@@ -47,14 +47,14 @@ def main(args):
         ['water_cond', 'water_temp']
     ]
     ctd_sensors = LLAT_SENSORS + ctd_sensor_names
-
+    
     # added the ability to use glob expansion; SP Feb2019
     if len(args.dba_files) == 1:
         dba_files = glob.glob(args.dba_files[0])
-        # sort dba files since the dbd format doesn't sort well.
-        dba_files.sort(key=sort_function)
     else:
         dba_files = args.dba_files
+    # sort dba files since the dbd format doesn't sort well.
+    dba_files.sort(key=sort_function)
 
     # Initial Checks
     if not os.path.isdir(config_path):
