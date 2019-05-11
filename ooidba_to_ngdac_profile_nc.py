@@ -123,6 +123,9 @@ def main(args):
             logging.warning('Skipping empty dba file: {:s}'.format(dba_file))
             continue
 
+        if dba.file_metadata['mission_name'].upper() == 'STATUS.MI':
+            continue
+
         # check the data file for the required sensors and that science data
         # exists in the file.  True or False returned.  See data_checks.py
         file_good = check_file_goodness(dba)
