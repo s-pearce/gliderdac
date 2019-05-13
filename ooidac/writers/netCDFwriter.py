@@ -1416,7 +1416,7 @@ class NetCDFWriter(object):
                 )
             )
             return
-        profile_filename = '{:s}-{:s}-{:s}'.format(
+        profile_filename = '{:s}_{:s}_{:s}'.format(
             self.attributes['deployment']['glider'], prof_start_ts,
             filetype)
         # Path to temporarily hold file while we create it
