@@ -49,36 +49,7 @@ def create_llat_sensors(
         )
         return
 
-    # Convert m_gps_lat to decimal degrees and create the new sensor
-    # definition
-    lat_sensor = deepcopy(dba['m_gps_lat'])
-    lat_sensor['sensor_name'] = 'llat_latitude'
-    lat_sensor['attrs']['source_sensor'] = u'm_gps_lat'
-    lat_sensor['attrs']['comment'] = (
-            u'm_gps_lat converted to decimal degrees and interpolated'
-    )
-    # Skip default values (69696969)
-    # ToDo: fix this so it doesn't print a warning
-    lat_sensor['data'][lat_sensor['data'] > 9000.0] = np.nan
-    lat_sensor['data'] = gps.iso2deg(lat_sensor['data'])
-
-    # Convert m_gps_lon to decimal degrees and create the new sensor
-    # definition
-    lon_sensor = deepcopy(dba['m_gps_lon'])
-    lon_sensor['sensor_name'] = 'llat_longitude'
-    lon_sensor['attrs']['source_sensor'] = u'm_gps_lon'
-    lon_sensor['attrs']['comment'] = (
-        u'm_gps_lon converted to decimal degrees and interpolated'
-    )
-    # Skip default values (69696969)
-    # ToDo: fix this so it doesn't print a warning
-    lon_sensor['data'][lon_sensor['data'] > 18000] = np.nan
-    lon_sensor['data'] = gps.iso2deg(lon_sensor['data'])
-
-    # Interpolate llat_latitude and llat_longitude
-    lat_sensor['data'], lon_sensor['data'] = gps.interpolate_gps(
-        time_sensor['data'], lat_sensor['data'], lon_sensor['data']
-    )
+    lat_sensor, lon_sensor = lat_and_lon_coordinates(dba, time_sensor)
 
     # If no depth_sensor was selected, use llat_latitude, llat_longitude
     # and llat_pressure to calculate
@@ -217,6 +188,45 @@ def select_depth_sensor(dba, depthsensor=None):
     # update needed
 
     return depth_sensor
+
+
+def lat_and_lon_coordinates(dba, time_sensor):
+    # Convert m_gps_lat to decimal degrees and create the new sensor
+    # definition
+    lat_sensor = deepcopy(dba['m_gps_lat'])
+    lat_sensor['sensor_name'] = 'llat_latitude'
+    lat_sensor['attrs']['source_sensor'] = u'm_gps_lat'
+
+    # Skip default values (69696969)
+    # ToDo: fix this so it doesn't print a warning
+    lat_sensor['data'][lat_sensor['data'] > 9000.0] = np.nan
+    lat_sensor['data'] = gps.iso2deg(lat_sensor['data'])
+
+    # Convert m_gps_lon to decimal degrees and create the new sensor
+    # definition
+    lon_sensor = deepcopy(dba['m_gps_lon'])
+    lon_sensor['sensor_name'] = 'llat_longitude'
+    lon_sensor['attrs']['source_sensor'] = u'm_gps_lon'
+
+    # Skip default values (69696969)
+    # ToDo: fix this so it doesn't print a warning
+    lon_sensor['data'][lon_sensor['data'] > 18000] = np.nan
+    lon_sensor['data'] = gps.iso2deg(lon_sensor['data'])
+
+    logging.info('Filling lat and lon coordinates by interpolation '
+                 'between GPS fixes')
+    # Interpolate llat_latitude and llat_longitude
+    lat_sensor['data'], lon_sensor['data'] = gps.interpolate_gps(
+        time_sensor['data'], lat_sensor['data'], lon_sensor['data']
+    )
+    lat_sensor['attrs']['comment'] = (
+        u'm_gps_lat converted to decimal degrees and interpolated'
+    )
+    lon_sensor['attrs']['comment'] = (
+        u'm_gps_lon converted to decimal degrees and interpolated'
+    )
+
+    return lat_sensor, lon_sensor
 
 
 def _autochoose(dba, sensorlist, sensortype):

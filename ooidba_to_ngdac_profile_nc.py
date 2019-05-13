@@ -28,10 +28,18 @@ def main(args):
     NGDAC-compliant Profile NetCDF files
     """
 
-    # Set up logger
-    log_level = getattr(logging, args.loglevel.upper())
-    log_format = '%(module)s:%(levelname)s:%(message)s [line %(lineno)d]'
-    logging.basicConfig(format=log_format, level=log_level)
+    # Set up logger, see LogManager class below.  This is used to create
+    # different logging message formats, one to announce running the script
+    # for a data file, and an indented format to show all log messages that
+    # occur under that data file.  This is implemented by
+    # LogManager.update_format
+    start_log_format = (
+        '%(levelname)s:%(module)s: [line %(lineno)d]'
+        '\n%(message)s')
+    run_log_format = (
+        '    %(levelname)s:%(module)s: [line %(lineno)d]'
+        '\n        %(message)s')
+    logmanager = LogManager(start_log_format, args.loglevel)
 
     # Gather configurations from the arguments
     config_path = args.config_path
@@ -103,27 +111,36 @@ def main(args):
 
     # Create a temporary directory for creating/writing NetCDF prior to
     # moving them to output_path
-    # tmp_dir = tempfile.mkdtemp()  # tmp_dir now created in NetCDFWriter
+
+    # update the logging format so that indentation can show log statements
+    # sub-level to the file being processed after an initial processing file
+    # statement
 
     # Write one NetCDF file for each input file
     output_nc_files = []
     processed_dbas = []
     for dba_file in dba_files:
+        # change to non-indented log format (see above)
+        logmanager.update_format(start_log_format)
 
         if not os.path.isfile(dba_file):
             logging.error('Invalid dba file specified: {:s}'.format(dba_file))
             continue
 
-        logging.info('Processing dba file: {:s}'.format(dba_file))
+        logging.info('Processing data file: {:s}'.format(dba_file))
+
+        # change to indented log format (see above)
+        logmanager.update_format(run_log_format)
 
         # Parse the dba file
         dba = DbaData(dba_file)
 
         if dba is None or dba.N == 0:
-            logging.warning('Skipping empty dba file: {:s}'.format(dba_file))
+            logging.warning('Skipping empty data file: {:s}'.format(dba_file))
             continue
 
         if dba.file_metadata['mission_name'].upper() == 'STATUS.MI':
+            logging.info('Skipping STATUS.MI data file')
             continue
 
         # check the data file for the required sensors and that science data
@@ -282,6 +299,22 @@ def main(args):
         sys.stdout.write('\t{:s} -> {:s}\n'.format(base_data, base_nc))
 
     return 0
+
+
+class LogManager:
+
+    def __init__(self, log_format, log_level, **kwargs):
+        self.log_level = getattr(logging, log_level.upper())
+        logging.basicConfig(level=self.log_level, **kwargs)
+        self.logger = logging.getLogger()
+        self.logger_handler = self.logger.handlers[0]
+        self.update_format(log_format)
+
+    def update_format(self, msg_format):
+        self.logger_handler.setFormatter(logging.Formatter(msg_format))
+
+    def get_logger(self):
+        return self.logger
 
 
 if __name__ == '__main__':
