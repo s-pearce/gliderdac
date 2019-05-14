@@ -288,7 +288,7 @@ def pitch_and_roll(dba, fill='fwd fill'):
 # TODO: Build a sensor defs (or separate attributes classes) that clearly
 #  read in the JSON definitions files and can use those rather than a murky
 #  singular ncw class.  Then that can be passed to this function.
-def ctd_data(dba, ctd_sensors, ncw):
+def ctd_data(dba, ctd_sensors):
     # before beginning, check that all the proper sensors are there
     for sensor in ctd_sensors:
         if sensor not in dba.sensor_names:
@@ -325,7 +325,7 @@ def ctd_data(dba, ctd_sensors, ncw):
     # Add salinity to the dba
     dba['salinity'] = {
         'sensor_name': 'salinity',
-        'attrs': ncw.nc_sensor_defs['salinity']['attrs'],
+        'attrs': {},  # these get filled in later by the netCDF writer
         'data': prac_sal
     }
 
@@ -335,7 +335,7 @@ def ctd_data(dba, ctd_sensors, ncw):
     # Add density to the dba
     dba['density'] = {
         'sensor_name': 'density',
-        'attrs': ncw.nc_sensor_defs['density']['attrs'],
+        'attrs': {},  # these get filled in later by the netCDF writer
         'data': density
     }
     return dba
