@@ -154,6 +154,8 @@ def main(args):
             )
             continue
 
+        scalars = []
+
         # remove any sci bay intialization zeros that may occur (where all
         # science instrument sensors are 0.0)
         dba = processing.remove_initial_sci_zeros(dba)
@@ -179,7 +181,7 @@ def main(args):
         # and adds them back to the data instance with metadata attributes.
         # Requires `llat_latitude/longitude` variables are in the data
         # instance from the `create_llat_sensors` method
-        dba = processing.ctd_data(dba, SCI_CTD_SENSORS, ncw)
+        dba = processing.ctd_data(dba, SCI_CTD_SENSORS)
 
         # Process `sci_oxy4_oxygen` to OOI L2 compensated for salinity and
         # pressure and converted to umol/kg.
@@ -188,6 +190,11 @@ def main(args):
 
         if 'sci_flbbcd_bb_units' in dba.sensor_names:
             dba = processing.backscatter_total(dba)
+            radiation_wavelength = {
+                'data': 700,
+                'attrs': {'units': 'nm'},
+                'nc_var_name': 'radiation_wavelength'}
+            scalars.append(radiation_wavelength)
 
         # If any of the processing steps above fail, they return None
         if dba is None:
@@ -212,9 +219,7 @@ def main(args):
             next2files = dba_files[dba_index + 1:dba_index + 3]
             vx, vy = processing.get_u_and_v(dba, check_files=next2files)
 
-            scalars = [seg_time, seg_lat, seg_lon, vx, vy]
-        else:
-            scalars = []
+            scalars.extend([seg_time, seg_lat, seg_lon, vx, vy])
 
         # create a config object
         # create a nc_defs object
