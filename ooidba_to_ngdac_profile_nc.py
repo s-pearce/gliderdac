@@ -138,9 +138,12 @@ def main(args):
         if dba is None or dba.N == 0:
             logging.warning('Skipping empty data file: {:s}'.format(dba_file))
             continue
-
-        if dba.file_metadata['mission_name'].upper() == 'STATUS.MI':
-            logging.info('Skipping STATUS.MI data file')
+        mission = dba.file_metadata['mission_name'].upper()
+        if (
+                mission == 'STATUS.MI'
+                or mission == 'LASTGASP.MI'
+                or mission == 'INITIAL.MI'):
+            logging.info('Skipping {:s} data file'.format(mission))
             continue
 
         # check the data file for the required sensors and that science data
@@ -171,34 +174,40 @@ def main(args):
         # `llat_pressure` converted to depth using the Python TEOS-10 GSW
         # package
         dba = processing.create_llat_sensors(dba)
+        if dba is None:
+            continue
 
         # Convert m_pitch and m_roll variables to degrees, and add back to
         # the data instance with metadata attributes
         if 'm_pitch' in dba.sensor_names and 'm_roll' in dba.sensor_names:
             dba = processing.pitch_and_roll(dba)
+            if dba is None:
+                continue
 
         # Convert `sci_water_cond/temp/ & pressure` to `salinity` and `density`
         # and adds them back to the data instance with metadata attributes.
         # Requires `llat_latitude/longitude` variables are in the data
         # instance from the `create_llat_sensors` method
         dba = processing.ctd_data(dba, SCI_CTD_SENSORS)
+        if dba is None:
+            continue
 
         # Process `sci_oxy4_oxygen` to OOI L2 compensated for salinity and
         # pressure and converted to umol/kg.
         if 'sci_oxy4_oxygen' in dba.sensor_names:
             dba = processing.o2_s_and_p_comp(dba)
+            if dba is None:
+                continue
 
         if 'sci_flbbcd_bb_units' in dba.sensor_names:
             dba = processing.backscatter_total(dba)
+            if dba is None:
+                continue
             radiation_wavelength = {
                 'data': 700,
                 'attrs': {'units': 'nm'},
                 'nc_var_name': 'radiation_wavelength'}
             scalars.append(radiation_wavelength)
-
-        # If any of the processing steps above fail, they return None
-        if dba is None:
-            continue
 
         # If Depth Averaged Velocity (DAV) data available, (i.e. any of the
         # `*_water_vx/vy` sensors are in the data) get the values and calculate
