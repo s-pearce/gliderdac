@@ -199,6 +199,11 @@ def main(args):
             if dba is None:
                 continue
 
+        # Re_calculate chlorophyll for 383-00008
+        dba = processing.recalc_chlor(dba, dark_offset=50, scale_factor=0.1004)
+        if dba is None:
+            continue
+
         if 'sci_flbbcd_bb_units' in dba.sensor_names:
             dba = processing.backscatter_total(dba)
             if dba is None:
