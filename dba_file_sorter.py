@@ -9,7 +9,7 @@ logger = logging.getLogger(os.path.basename(__name__))
 
 # regex = r'(
 #   [_A-Za-z0-9]+)(_|-)(\d{4})(_|-)(\d{3})(_|-)(\d{1,2})(_\-)(\d{1,3})\.'
-ooiregex = r'[a-z]{2}_\d{3}_(\d{4}_\d{3}_)(\d{1,2})_(\d{1,3})(_*\..+)'
+ooiregex = r'[a-z]{2}_\d{3}_(\d{4}_\d{3}_)(\d{1,2})_(\d{1,4})(_*\..+)'
 regex = re.compile(ooiregex)
 
 
