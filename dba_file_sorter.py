@@ -21,6 +21,6 @@ def sort_function(filename):
         return
     else:
         mission_num = '{:02d}'.format(int(match.group(2)))
-        segment_num = '{:03d}'.format(int(match.group(3)))
+        segment_num = '{:04d}'.format(int(match.group(3)))
         sort_str = match.group(1) + mission_num + '_' + segment_num
     return sort_str
