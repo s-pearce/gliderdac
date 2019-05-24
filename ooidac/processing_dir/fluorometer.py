@@ -389,7 +389,7 @@ def flo_scale_and_offset(counts_output, counts_dark, scale_factor):
 
         N/A
     """
-    value = ne.evaluate('(counts_output - counts_dark) * scale_factor')
+    value = (counts_output - counts_dark) * scale_factor
     return value
 
 
