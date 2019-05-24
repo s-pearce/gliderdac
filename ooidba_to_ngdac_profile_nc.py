@@ -200,7 +200,7 @@ def main(args):
                 continue
 
         # Re_calculate chlorophyll for 383-00008
-        dba = processing.recalc_chlor(dba, dark_offset=50, scale_factor=0.1004)
+        dba = processing.recalc_chlor(dba, dark_offset=46, scale_factor=0.0073)
         if dba is None:
             continue
 
