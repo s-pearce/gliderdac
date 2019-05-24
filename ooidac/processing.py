@@ -487,7 +487,7 @@ def get_segment_time_and_pos(dba):
     c = 'llat_latitude' not in dba.sensor_names
     d = 'llat_longitude' not in dba.sensor_names
     if a or b or c or d:
-        return
+        return None, None, None
 
     # ToDo: dba.ts has to be m_present_time for this, should I enforce this
     #  earlier, or pair dba.timesensor with it and if it is not dba.ts,

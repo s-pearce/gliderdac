@@ -149,7 +149,7 @@ def main(args):
         # check the data file for the required sensors and that science data
         # exists in the file.  True or False returned.  See data_checks.py
         file_good = check_file_goodness(dba)
-        if not file_good:
+        if not file_good or len(dba.underwater_indices) == 0:
             logging.warning(
                 'File {:s} either does not have enough science data or lacks '
                 'the required sensors to produce DAC formatted profiles'.format(
@@ -213,11 +213,13 @@ def main(args):
         # `*_water_vx/vy` sensors are in the data) get the values and calculate
         # the mean position and time of the segment as the postion and time
         # for the velocity estimation
-        if check_for_dav_sensors(dba):
+        if check_for_dav_sensors(dba) and len(dba.underwater_indices) > 0:
             # get segment mean time, segment mean lat, and segment mean lon
             # (underwater portion only)
             seg_time, seg_lat, seg_lon = processing.get_segment_time_and_pos(
                 dba)
+            if seg_time is None or seg_lat is None or seg_lon is None:
+                break
 
             # if data is the recovered data, this tries to get
             # `m_final_water_vx/vy` from the next 2 segment data files where
