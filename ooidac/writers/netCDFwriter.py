@@ -241,7 +241,7 @@ class NetCDFWriter(object):
             try:
                 trajectory_dt = parser.parse(
                     self._attributes['deployment']['trajectory_datetime'])
-                self._trajectory = '{:s}-{:s}-rt'.format(
+                self._trajectory = '{:s}-{:s}'.format(
                     self.attributes['deployment']['glider'],
                     trajectory_dt.strftime('%Y%m%dT%H%M')
                 )
