@@ -18,3 +18,5 @@ DATA_CONFIG_LIST = [
     'sci_flbbcd_chlor_units', 'sci_flbbcd_cdom_units', 'sci_flbbcd_bb_units',
     'sci_oxy4_oxygen', 'sci_oxy4_saturation', 'sci_bsipar_par'
 ]
+
+TIMESENSOR = 'm_present_time'

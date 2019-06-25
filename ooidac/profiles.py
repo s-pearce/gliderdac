@@ -6,7 +6,7 @@ import os
 
 from ooidac import boxcar_smooth_dataset
 
-from ooidac.utilities import fwd_fill
+from ooidac.utilities import fwd_fill, cluster_index
 from ooidac.processing import all_sci_indices
 import profile_filters
 # import pdb
@@ -59,16 +59,117 @@ class Profiles(object):
     #  I meant here that sometimes the return statements return an empty
     #  list, when they could just say "return" alone.
 
-    # ToDo: I still want to preferentially use m_depth when available for
-    #  finding the profiles since there might be no science data on the
-    #  climb, but I think that m_depth and the timestamps should be trimmed
-    #  to start when any science data starts too, not trimmed to where
-    #  science data exists, because then it would remove m_depth from climbs
-    #  where there is no data.  Look at it again, but this could maybe be
-    #  trimmed to the same first point as when c_profile first changes and
-    #  the end trimmed to when c_battpos moves all the way forward (would
-    #  need to look in reverse I think)
-    def find_profiles_by_depth(self, tsint=2):
+    def find_profiles_by_depth(
+            self, depth_sensor='m_depth', tsint=2, winsize=5):
+        """Discovery of profiles in a glider segment using depth and time.
+
+        Profiles are discovered by smoothing the depth timeseries and using the
+        derivative of depth vs time to find the inflection points to break
+        the segment into profiles.  Profiles are truncated to where science
+        data exists; science sensors for the glider are configured in
+        Configuration.py.
+        Depth can be `m_depth` or CTD pressure (Default m_depth).  For smoothing
+        a filtered depth is created at regular time intervals `tsint` (default
+        2 secs) and boxcar filtered with window `winsize` (default 5 points).
+        The smoothing is affected by both choice of `tsint` and `winsize`, but
+        usually still returns similar profiles.  After profiles are discovered,
+        they should be filtered with the `filter_profiles` method of this
+        class, which removes profiles that are not true profiles.
+
+        :param depth_sensor: The Depth sensor to use for profile discovery.
+        Should be either m_depth, sci_water_pressure, or a derivative of
+        those 2.  Default is `m_depth`
+        :param tsint: Time interval in seconds for filtered depth.
+        This affects filtering.  Default is 2.
+        :param winsize: Window size for boxcar smoothing filter.
+        :return: output is a list of profile indices in self.indices
+        """
+        self._indices = []
+        depth = self.dba.getdata(depth_sensor)
+        time_ = self.dba.getdata('m_present_time')
+
+        # Set negative depth values to NaN; using this method to avoid numpy
+        # warnings from < when nans are in the array
+        depth_ii = np.flatnonzero(np.isfinite(depth))  # non-nan indices
+        neg_depths = np.flatnonzero(depth[depth_ii] <= 0)  # indices to depth_ii
+        depth[depth_ii[neg_depths]] = np.nan
+
+        # Remove NaN depths and truncate to when science data begins being
+        # recorded and ends
+        depth_ii = np.flatnonzero(np.isfinite(depth))
+
+        sci_indices = all_sci_indices(self.dba)  # from ooidac.processing
+        if len(sci_indices) > 0:
+            starting_index = sci_indices[0]
+            ending_index = sci_indices[-1]
+        else:
+            return  # no science_indices, then we don't care to finish
+
+        depth_ii = depth_ii[
+            np.logical_and(
+                depth_ii >= starting_index,
+                depth_ii <= ending_index)
+        ]
+
+        # ---Create a smoothed depth timeseries for finding inflections ------#
+
+        # find start and end times first adding winsize * tsint timesteps
+        # onto the start and end to account for filter edge effects
+        itime_start = np.ceil(time_[depth_ii].min()) - winsize * tsint
+        itime_end = np.floor(time_[depth_ii].max()) + (winsize + 1) * tsint
+
+        itime = np.arange(itime_start, itime_end, tsint)
+        idepth = np.interp(itime, time_[depth_ii], depth[depth_ii],
+                           left=depth[depth_ii[0]], right=depth[depth_ii[-1]])
+        fz = boxcar_smooth_dataset(idepth, winsize)
+
+        # remove the extra points with filter edge effects
+        fz = fz[winsize:-winsize]
+        itime = itime[winsize:-winsize]
+        idepth = idepth[winsize:-winsize]
+
+        # Zero crossings of the time derivative of filtered depth are the
+        # inflection points.  Differential time is midway between the
+        # filtered timestamps.
+        # Originally, this used scipy's fsolver to locate the exact zero
+        # crossing, but only the timestamp before the zero crossing is needed
+        # to be the last in a profile and the timestamp after the zero
+        # crossing to be the first in the next profile.
+
+        dz_dt = np.diff(fz) / np.diff(itime)
+        dtime = itime[:-1] + np.diff(itime) / 2  # differential time
+
+        # Get the time point just after a zero crossing.  The flatnonzero
+        # statement below gets the point before a zero crossing.
+        zero_crossings_ii = np.flatnonzero(abs(np.diff(np.sign(dz_dt))))
+        zc_times = dtime[zero_crossings_ii] + (
+                dtime[zero_crossings_ii + 1] - dtime[zero_crossings_ii]) / 2.
+
+        profile_switch_times = zc_times[np.logical_and(
+            zc_times > time_[starting_index],
+            zc_times < time_[ending_index]
+        )]
+        # insert the timestamp of the first science data point at the start
+        # and the last data point at the end.
+        profile_switch_times = np.insert(
+            profile_switch_times, [0, len(profile_switch_times)],
+            [time_[starting_index],
+             time_[ending_index]])
+
+        # create a time range for each profile
+        profile_times = np.empty((len(profile_switch_times) - 1, 2))
+        profile_times[:, 0] = profile_switch_times[:-1]
+        profile_times[:, 1] = profile_switch_times[1:]
+
+        # use the time range to gather indices for each profile
+        for pstart, pend in profile_times:
+            profile_ii = np.flatnonzero(
+                np.logical_and(
+                    time_ >= pstart,
+                    time_ <= pend))  # inclusive since before the inflection
+            self._indices.append(profile_ii)
+
+    def orig_find_profiles_by_depth(self, tsint=2, filter_winsize=5):
         """Returns the start and stop timestamps for every profile indexed from
         the depth timeseries
 
@@ -84,7 +185,11 @@ class Profiles(object):
         # Create list of profile indices - pearce / kerfoot method
         self._indices = []
 
-        timestamps = (self.dba['llat_time'] or self.dba['m_present_time'])
+        if 'llat_time' in self.dba.sensor_names:
+            timestamps = self.dba['llat_time']
+        else:
+            timestamps = self.dba['m_present_time']
+
         timestamps = timestamps['data']
         if 'm_depth' not in self.dba.sensor_names:
             logging.warning(
@@ -111,19 +216,19 @@ class Profiles(object):
         # Remove NaN depths and truncate to when science data begins being
         # recorded and ends
         depth_ii = np.flatnonzero(np.isfinite(depth))
-        sci_indices = all_sci_indices(self.dba)  # from ooidac.processing
-        if len(sci_indices) > 0:
-            starting_index = sci_indices[0]
-            ending_index = sci_indices[-1]
-        else:
-            starting_index = 0
-            ending_index = len(timestamps) - 1
-
-        depth_ii = depth_ii[
-            np.logical_and(
-                depth_ii > starting_index,
-                depth_ii < ending_index)
-        ]
+        # sci_indices = all_sci_indices(self.dba)  # from ooidac.processing
+        # if len(sci_indices) > 0:
+        #     starting_index = sci_indices[0]
+        #     ending_index = sci_indices[-1]
+        # else:
+        #     starting_index = 0
+        #     ending_index = len(timestamps) - 1
+        #
+        # depth_ii = depth_ii[
+        #     np.logical_and(
+        #         depth_ii > starting_index,
+        #         depth_ii < ending_index)
+        # ]
 
         depth = depth[depth_ii]
         ts = timestamps[depth_ii]
@@ -151,7 +256,30 @@ class Profiles(object):
             right=depth[-1]
         )
 
-        filtered_z = boxcar_smooth_dataset(interp_z, int(tsint / 2))
+        filtered_z = boxcar_smooth_dataset(interp_z, filter_winsize)
+
+        # truncate the filtered depths by science start and end times
+        sci_indices = all_sci_indices(self.dba)  # from ooidac.processing
+        if len(sci_indices) > 0:
+            sci_start_time = timestamps[sci_indices[0]]
+            sci_end_time = timestamps[sci_indices[-1]]
+        else:
+            sci_start_time = timestamps[0]
+            sci_end_time = timestamps[-1]
+
+        start_minimizer = abs(interp_ts - sci_start_time)
+        end_minimizer = abs(interp_ts - sci_end_time)
+
+        sci_start_ii = np.flatnonzero(
+            start_minimizer == np.min(start_minimizer))
+        if len(sci_start_ii) == 2:
+            sci_start_ii = sci_start_ii[1]
+        sci_end_ii = np.flatnonzero(end_minimizer == np.min(end_minimizer))
+        if len(sci_end_ii) == 2:
+            sci_end_ii = sci_end_ii[1]
+        sci_truncate_indices = slice(int(sci_start_ii), int(sci_end_ii + 1))
+        interp_ts = interp_ts[sci_truncate_indices]
+        filtered_z = filtered_z[sci_truncate_indices]
 
         delta_depth = calculate_delta_depth(filtered_z)
         dts = interp_ts[:-1] + tsint / 2
@@ -163,7 +291,9 @@ class Profiles(object):
         # timestamp associated with diff of delta_depth (i.e. the timestamp of
         # the 2nd derivative of depth timestamp)
         ddts = dts[:-1] + tsint / 2
-        inflection_times = ddts[inflections]
+        # inflection_times = ddts[inflections]
+        inflection_times = interp_ts[inflections]  # for some reason this
+        # works better
         self.inflection_times = inflection_times
 
         # get the first profile indices manually so that it gets all of the
@@ -258,13 +388,14 @@ class Profiles(object):
     def filter_profiles(self):
         """
         """
-        funcs = [getattr(profile_filters, func) for func in dir(profile_filters)
+        filters = [getattr(profile_filters, func) for func in dir(
+            profile_filters)
                  if func.startswith('filter')]
         profiles_to_remove = []
         for ii in range(len(self.indices)):
             profile_ii = self.indices[ii]
             profile = self.dba.slicedata(indices=profile_ii)
-            for func in funcs:
+            for func in filters:
                 remove_profile = func(profile)
                 if remove_profile:
                     profiles_to_remove.append(ii)
@@ -275,6 +406,8 @@ class Profiles(object):
         profiles_to_remove.sort(reverse=True)
         for index in profiles_to_remove:
             self.indices.pop(index)
+
+
 
 
 def binarize_diff(data):

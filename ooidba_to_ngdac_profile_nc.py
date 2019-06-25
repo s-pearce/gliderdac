@@ -261,7 +261,7 @@ def main(args):
         #  well for Kerfoot because he used sci_water_pressure.  Maybe I
         #  should try using sci_water_pressure instead too.  Would that
         #  help? profiles.find_profiles_by_depth_state()
-        profiles.find_profiles_by_depth(10)
+        profiles.find_profiles_by_depth()
 
         # See profile_filters.py for which filters are applied
         profiles.filter_profiles()

@@ -4,10 +4,8 @@
 import numpy as np
 import logging
 import os
-from configuration import DATA_CONFIG_LIST
+from configuration import DATA_CONFIG_LIST, TIMESENSOR
 logger = logging.getLogger(os.path.basename(__name__))
-
-TIMESENSOR = 'm_present_time'
 
 
 def filter_no_data(profile_data):
@@ -33,7 +31,7 @@ def filter_no_data(profile_data):
     return remove_profile
 
 
-def filter_small_data_ratio(profile_data, threshold=.01):
+def filter_small_data_ratio(profile_data, threshold=.05):
     """Profile filter that will remove a profile if all of the relevant science
     sensors ( listed by the SCI_DATA_PROFILE_LIST configuration parameter)
     have a ratio of good data to missing data that is smaller than the
@@ -46,23 +44,20 @@ def filter_small_data_ratio(profile_data, threshold=.01):
     """
     remove_profile = False
     data_ratios_too_small = []
+    timestamps = profile_data.getdata(TIMESENSOR)
+    total_profile_time = timestamps[-1] - timestamps[0]
+
     for scidata_sensor in DATA_CONFIG_LIST:
         data = profile_data.getdata(scidata_sensor)
-        timestamps = profile_data.getdata(TIMESENSOR)
 
-        # data_ratio version 1 uses points
-        # good_data_length = len(np.flatnonzero(np.isfinite(data)))
-        # total_data_length = len(data)
-
-        # data_ratio version 2 uses time length
-        total_data_length = timestamps[-1] - timestamps[0]
+        # data_ratio uses ratio of data record time vs total profile time
         finites = np.flatnonzero(np.isfinite(data))
         if len(finites) > 0:
-            good_data_length = timestamps[finites[-1]] - timestamps[finites[0]]
+            good_data_length = cum_data_time_sum(timestamps[finites])
         else:
             good_data_length = 0
 
-        data_ratio = good_data_length/total_data_length
+        data_ratio = good_data_length/total_profile_time
         data_ratios_too_small.append(data_ratio < threshold)
 
     if np.all(data_ratios_too_small):
@@ -71,7 +66,7 @@ def filter_small_data_ratio(profile_data, threshold=.01):
     return remove_profile
 
 
-def filter_time_lessthan(profile_data, threshold=5):
+def filter_time_lessthan(profile_data, threshold=1):
     """Profile filter that will remove a profile if the elapsed time for
     the profile is less than `threshold` minutes.
 
@@ -84,9 +79,52 @@ def filter_time_lessthan(profile_data, threshold=5):
     time1 = timestamps[0]
     time2 = timestamps[-1]
 
-    minutes_of_data = (time2 - time1) / 60.
+    minutes_of_profile = (time2 - time1) / 60.
+
+    if minutes_of_profile < threshold:
+        remove_profile = True
+
+    return remove_profile
+
+
+def filter_datatime_lessthan(profile_data, threshold=2):
+    """Profile filter that will remove a profile if the elapsed time for
+    the data collected in a profile is less than `threshold` minutes.
+
+    Note: a profile not removed by this filter might still be removed by
+    another active filter.
+    :return:
+    """
+    remove_profile = False
+    timestamps = profile_data.getdata(TIMESENSOR)
+    data_indices = np.array([], dtype=np.int64)
+    for scidata_sensor in DATA_CONFIG_LIST:
+        data = profile_data.getdata(scidata_sensor)
+        finites = np.flatnonzero(np.isfinite(data))
+        data_indices = np.union1d(data_indices, finites)
+
+    sci_time = timestamps[data_indices]
+
+    minutes_of_data = cum_data_time_sum(sci_time) / 60.
 
     if minutes_of_data < threshold:
         remove_profile = True
 
     return remove_profile
+
+
+def cum_data_time_sum(sci_timestamps):
+    """To eliminate the case where a small amount of science data points are at
+    the beginning of a profile, and a small amount exists at the end of a
+    profile, with a large non-data gap in between, this function calculates
+    the cumulative sum of data time excluding time gaps larger than 3 median
+    time steps.
+
+    :param sci_timestamps: timestamps of non-nan science data records
+    :return: The cumulative sum of data sample time excluding large gaps
+    """
+    sci_dt = np.diff(sci_timestamps)
+    sci_dt_median = np.nanmedian(sci_dt)
+    no_gaps_ii = sci_dt < 3 * sci_dt_median
+    cum_sci_sample_time = np.sum(sci_dt[no_gaps_ii])
+    return cum_sci_sample_time

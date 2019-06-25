@@ -44,6 +44,30 @@ def ordered_style_generator():
         counter += 1
 
 
+def color_generator():
+    colorstyles = ['r.', 'b.', 'y.', 'm.', 'c.']
+    counter = 0
+    while True:
+        ii = counter % len(colorstyles)
+        c = colorstyles[ii]
+        yield c
+        counter += 1
+
+
+def color_gen():
+    color_order = [
+        '#9e0168', '#c0fb2d',
+        'red', 'green',
+        '#fd3c06', '#137e6d',
+        'orange', 'blue',
+        '#fcb001', '#5d06e9',
+        'yellow', 'violet']
+    ii = 0
+    while True:
+        yield color_order[ii % len(color_order)]
+        ii += 1
+
+
 def plot_dba(ts, depth):
     plt.plot(ts, depth, 'k.')
     ax = plt.gca()
@@ -107,11 +131,23 @@ def profile_text_line(ptime, pdepth, msg, ax):
 
 
 def plot_multiprofiles_and_dba(nc_file_list, plot_dir=None):
+    """Takes a list of netCDF files corresponding to the profiles of a glider
+    segment plots the profiles and uses metdata from the NetCDF profiles to
+    get the source ascii glider segment data file (must be on the same
+    machine) and plots the original depth vs time plot to compare profile
+    discovery to the original file as a visual check for accuracy.
+
+    :param nc_file_list: List of DAC NetCDF Profile files
+    :param plot_dir: Directory where plots are to be saved.  If `None` (
+    default) than plots are printed to the screen one at a time (the next is
+    generated upon the closing of a previous figure)
+    :return:
+    """
     dba_path = None
     dba = None
     source_file = "delete_me"
     title = ""
-    styles = ordered_style_generator()
+    styles = color_gen()
     for ncfile in nc_file_list:
         gldata = netCDF4.Dataset(ncfile)
         prof_dba_path = gldata.variables['source_file'].full_path
@@ -140,12 +176,17 @@ def plot_multiprofiles_and_dba(nc_file_list, plot_dir=None):
             logging.debug("plotting segment {:s}".format(source_file))
             dba_ts = pd.to_datetime(dba.ts * 1e9)
             dba_depth = dba.depth
+            dba_press = dba.getdata('sci_water_pressure') * 10.
             plot_dba(dba_ts, dba_depth)
+            plt.plot(dba_ts, dba_press, 'gray',
+                     marker='.', linestyle="none", markersize=5)
             title = "{:s}:".format(source_file)
 
         prof_ts = pd.to_datetime(gldata['time'][:].data * 1e9)
         prof_depth = gldata['depth'][:].data
-        plt.plot(prof_ts, prof_depth, next(styles))
+        color = next(styles)
+        plt.plot(prof_ts, prof_depth, color, marker='.', markersize=2)
+        plt.axvspan(prof_ts[0], prof_ts[-1], alpha=0.3, color=color)
         ax = plt.gca()
         profile_text_line(prof_ts, prof_depth, ncfile_timestr, ax)
 
@@ -173,7 +214,10 @@ if __name__ == "__main__":
     arg_parser.add_argument('-s', '--save_path',
                             help=(
                                 'Save figures to the plot directory instead of '
-                                'plotting on screen'))
+                                'plotting on screen. If no directory is '
+                                'given, the plots will appear one at a time '
+                                'on screen.  Closing one plot will then '
+                                'generate the next.'))
 
     arg_parser.add_argument('-l', '--loglevel',
                             help='Verbosity level',

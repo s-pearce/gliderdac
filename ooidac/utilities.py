@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 def fwd_fill(x, init_nan_fill=None):
@@ -78,3 +79,31 @@ def cluster_index(indices, ids=False):
         index_ids = np.unique(index)
         return index, index_ids
     return index
+
+
+def nan_array_equal(arr1, arr2):
+    finites1 = np.isfinite(arr1)
+    finites2 = np.isfinite(arr2)
+    aa = np.array_equal(finites1, finites2)
+
+    nans1 = np.isnan(arr1)
+    nans2 = np.isnan(arr2)
+    bb = np.array_equal(nans1, nans2)
+
+    cc = np.array_equal(arr1[finites1], arr2[finites2])
+
+    if aa and bb and cc:
+        return True
+    else:
+        return False
+
+
+def plot_vert_lines(x, style='k:', ax=None):
+    x = np.atleast_1d(x)
+    n = len(x)
+    x = np.tile(x, (2, 1))
+    if not ax:
+        ax = plt.gca()
+    ylims = ax.get_ylim()
+    y = np.array([np.repeat(ylims[0], n), np.repeat(ylims[1], n)])
+    plt.plot(x, y, style)
