@@ -14,46 +14,6 @@ import pdb
 REGEX = re.compile(r'[A-Za-z0-9_]+_(\d{8}T\d{6})Z_(?:delayed|rt).nc')
 
 
-def random_style_generator():
-    colorstyles = ['r', 'b', 'y', 'm', 'c']
-    pointstyles = ['.', '*', 's', '^', 'o', 'v', 'D', 'x', 'H', 'p']
-    lastpoint = None
-    lastcolor = None
-    while True:
-        c = int(np.random.random() * (len(colorstyles)-1))
-        if c == lastcolor:
-            c = c+1 % len(colorstyles)
-        p = int(np.random.random() * (len(pointstyles)-1))
-        if p == lastpoint:
-            p = p+1 % len(pointstyles)
-        lastpoint = p
-        lastcolor = c
-        yield colorstyles[c] + pointstyles[p]
-
-
-def ordered_style_generator():
-    colorstyles = ['r', 'b', 'y', 'm', 'c']
-    pointstyles = ['.', '*', 's', '^', 'o', 'v', 'D', 'x', 'H', 'p']
-    counter = 0
-    while True:
-        ii = counter % len(pointstyles)
-        p = pointstyles[ii]
-        for jj in range(len(colorstyles)):
-            c = colorstyles[jj]
-            yield c + p
-        counter += 1
-
-
-def color_generator():
-    colorstyles = ['r.', 'b.', 'y.', 'm.', 'c.']
-    counter = 0
-    while True:
-        ii = counter % len(colorstyles)
-        c = colorstyles[ii]
-        yield c
-        counter += 1
-
-
 def color_gen():
     color_order = [
         '#9e0168', '#c0fb2d',
@@ -62,6 +22,14 @@ def color_gen():
         'orange', 'blue',
         '#fcb001', '#5d06e9',
         'yellow', 'violet']
+    ii = 0
+    while True:
+        yield color_order[ii % len(color_order)]
+        ii += 1
+
+
+def color_gen2():
+    color_order = ['red', 'blue']
     ii = 0
     while True:
         yield color_order[ii % len(color_order)]
@@ -147,7 +115,7 @@ def plot_multiprofiles_and_dba(nc_file_list, plot_dir=None):
     dba = None
     source_file = "delete_me"
     title = ""
-    styles = color_gen()
+    styles = color_gen2()
     for ncfile in nc_file_list:
         gldata = netCDF4.Dataset(ncfile)
         prof_dba_path = gldata.variables['source_file'].full_path
@@ -181,6 +149,7 @@ def plot_multiprofiles_and_dba(nc_file_list, plot_dir=None):
             plt.plot(dba_ts, dba_press, 'gray',
                      marker='.', linestyle="none", markersize=5)
             title = "{:s}:".format(source_file)
+            styles = color_gen2()
 
         prof_ts = pd.to_datetime(gldata['time'][:].data * 1e9)
         prof_depth = gldata['depth'][:].data

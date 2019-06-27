@@ -23,10 +23,15 @@ def filter_no_data(profile_data):
 
     for scidata_sensor in DATA_CONFIG_LIST:
         data = profile_data.getdata(scidata_sensor)
-        allbad_scidata.append(np.all(np.isnan(data)))
+        any_data = np.all(np.isnan(data))
+        # if there isn't any CTD pressure data at all, we don't want the profile
+        if scidata_sensor == 'sci_water_pressure' and any_data:
+            remove_profile = True
+            break
+        allbad_scidata.append(any_data)
 
-    if np.all(allbad_scidata):
-        remove_profile = True
+    if not remove_profile:
+        remove_profile = np.all(allbad_scidata)
 
     return remove_profile
 

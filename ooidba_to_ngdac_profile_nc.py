@@ -244,23 +244,6 @@ def main(args):
         # instance that is the data subset of the main data instance
         profiles = Profiles(dba)
 
-        # ToDo: decide here if it is worth it to even use depth state any
-        #  more. Also it could potentially be rewritten with the cluser_index
-        #  function that might speed it up a little, although both functions
-        #  already run in the single digit milliseconds
-        # ToDo: it is found that by depth state, the profile starts too deep
-        #  (~4 m) and by depth has a starting profile arbitrarily after
-        #  whatever small dip occurs that originally ids as a profile.  So I
-        #  should add to the profile finding code to have it trim the beginning
-        #  to wherever the first science data point (not sc_m_present_time)
-        #  occurs. To keep generic, I must view the list of installed science
-        #  instruments and find the first point of any of them (after
-        #  dropping any initial zeros).  Any depth data before that first
-        #  point is dropped.  That can be the initial segment dive start (I
-        #  believe this works even if doing a surface data grab).  It worked
-        #  well for Kerfoot because he used sci_water_pressure.  Maybe I
-        #  should try using sci_water_pressure instead too.  Would that
-        #  help? profiles.find_profiles_by_depth_state()
         profiles.find_profiles_by_depth()
 
         # See profile_filters.py for which filters are applied
