@@ -6,7 +6,7 @@ import os
 
 from ooidac import boxcar_smooth_dataset
 
-from ooidac.utilities import fwd_fill, cluster_index
+from ooidac.utilities import fwd_fill
 from ooidac.processing import all_sci_indices
 import profile_filters
 # import pdb
@@ -113,7 +113,7 @@ class Profiles(object):
 
         # ---Create a smoothed depth timeseries for finding inflections ------#
 
-        # find start and end times first adding winsize * tsint timesteps
+        # Find start and end times first adding winsize * tsint timesteps
         # onto the start and end to account for filter edge effects
         itime_start = np.ceil(time_[depth_ii].min()) - winsize * tsint
         itime_end = np.floor(time_[depth_ii].max()) + (winsize + 1) * tsint
@@ -156,6 +156,213 @@ class Profiles(object):
             [time_[starting_index],
              time_[ending_index]])
 
+        self.inflection_times = profile_switch_times
+
+        profile_switch_times = self.adjust_inflections(depth, time_)
+
+        # use the time range to gather indices for each profile
+        for ii in range(len(profile_switch_times)-1):
+            pstart = profile_switch_times[ii]
+            pend = profile_switch_times[ii+1]
+            profile_ii = np.flatnonzero(
+                np.logical_and(
+                    time_ >= pstart,
+                    time_ <= pend))  # inclusive since before the inflection
+            if len(profile_ii) == 0:
+                continue
+            self._indices.append(profile_ii)
+
+    def adjust_inflections(self, depth, time_):
+        """Filters out bad inflection points.
+
+        Bad inflection points are small surface, bottom of dive, or mid-profile
+        wiggles that are not associated with true dive or climb inflections.
+        These false inflections are removed so that when profile indices are
+        created, they don't separate into separate small profiles.
+
+        :param depth:
+        :param time_:
+        :return:
+        """
+        inflection_times = self.inflection_times
+        inflx_to_keep = np.full(len(inflection_times), True)
+        inflection_depths = np.interp(
+            inflection_times, time_[np.isfinite(depth)],
+            depth[np.isfinite(depth)]
+        )
+        for ii in range(1, len(inflection_times) - 1):
+            # for each inflection point, get the inflection point before and
+            # afer to compare depths.
+            zcs = inflection_times[
+                  ii - 1:ii + 2]
+            flx_depths = inflection_depths[ii - 1:ii + 2]
+
+            # Taking the 2nd derivative tells us the inflection direction.
+            # Positive inflection is toward larger depths (i.e.
+            # toward the sea floor) and negative inflections are toward
+            # smaller depths (i.e. toward the surface)
+            dz_dt = np.diff(flx_depths) / np.diff(zcs)
+            dt = zcs[:-1] + np.diff(zcs) / 2
+            d2z_dt2 = np.diff(dz_dt) / np.diff(dt)
+
+            # Inflections where both inflection points to either side have less
+            # than 2m difference are no good
+            if (
+                    abs(flx_depths[1] - flx_depths[0]) < 2
+                    and abs(flx_depths[1] - flx_depths[2]) < 2):
+                inflx_to_keep[ii] = False
+                continue
+
+            # If a positive inflection is not the top of a yo, it is no
+            # good.  This is determined by positive inflections (climb to
+            # dive, i.e. near surface) where the inflections to either side
+            # are less than 2m deep are no good. Positive inflections should
+            # be bordered by inflections that are deep enough to consider
+            # that it dove, here chosen to be anything deeper than 2 m.
+            if (
+                    d2z_dt2[0] > 0
+                    and (flx_depths[0] < 2 or flx_depths[2] < 2)):
+                inflx_to_keep[ii] = False
+                continue
+
+            # negative inflections (dive to climb, i.e. at the bottom of a
+            # dive) that are less than the depth considered to be a dive (
+            # here 2m) are no good.
+            if d2z_dt2[0] < 0 and flx_depths[1] < 2:
+                inflx_to_keep[ii] = False
+                continue
+
+            # if an inflection point's 2nd derivative is zero (meaning not
+            # really inflecting) then it is no good.
+            if d2z_dt2[0] == 0:
+                inflx_to_keep[ii] = False
+
+        # Then remove those inflections that are True in inflx_to_rm
+        inflection_times = inflection_times[inflx_to_keep]
+        inflection_depths = inflection_depths[inflx_to_keep]
+
+        # After, we now need to see if there are any mid profile breaks/
+        # false inflections (might include a small change in the wrong
+        # direction) and remove those inflection points.
+
+        # 1. To do this, start by seeing if there are any differences left
+        # between inflection depths that are less less than 2m and remove
+        # them (remove the one after the small difference).
+        inflx_to_keep = np.full(len(inflection_times), True)
+        small_diffs = np.flatnonzero(
+            abs(np.diff(inflection_depths)) < 2) + 1  # +1 for after
+        inflx_to_keep[small_diffs] = False
+        inflection_times = inflection_times[inflx_to_keep]
+        inflection_depths = inflection_depths[inflx_to_keep]
+
+        # 2. Again take the difference, and where the trend between 2
+        # sequential inflections have the same sign (i.e. they both trend in
+        # the same direction) remove the second that has the same sign.
+        inflx_to_keep = np.full(len(inflection_times), True)
+        same_sign_ii = np.flatnonzero(
+            np.diff(np.sign(np.diff(inflection_depths))) == 0)
+        same_sign_ii += 1  # add one to each index since we took diff twice
+        inflx_to_keep[same_sign_ii] = False
+        return inflection_times[inflx_to_keep]
+
+    def find_profiles_by_depth1(
+            self, depth_sensor='m_depth', tsint=2, winsize=5):
+        """Discovery of profiles in a glider segment using depth and time.
+
+        Profiles are discovered by smoothing the depth timeseries and using the
+        derivative of depth vs time to find the inflection points to break
+        the segment into profiles.  Profiles are truncated to where science
+        data exists; science sensors for the glider are configured in
+        Configuration.py.
+        Depth can be `m_depth` or CTD pressure (Default m_depth).  For smoothing
+        a filtered depth is created at regular time intervals `tsint` (default
+        2 secs) and boxcar filtered with window `winsize` (default 5 points).
+        The smoothing is affected by both choice of `tsint` and `winsize`, but
+        usually still returns similar profiles.  After profiles are discovered,
+        they should be filtered with the `filter_profiles` method of this
+        class, which removes profiles that are not true profiles.
+
+        :param depth_sensor: The Depth sensor to use for profile discovery.
+        Should be either m_depth, sci_water_pressure, or a derivative of
+        those 2.  Default is `m_depth`
+        :param tsint: Time interval in seconds for filtered depth.
+        This affects filtering.  Default is 2.
+        :param winsize: Window size for boxcar smoothing filter.
+        :return: output is a list of profile indices in self.indices
+        """
+        self._indices = []
+        depth = self.dba.getdata(depth_sensor)
+        time_ = self.dba.getdata('m_present_time')
+
+        # Set negative depth values to NaN; using this method to avoid numpy
+        # warnings from < when nans are in the array
+        depth_ii = np.flatnonzero(np.isfinite(depth))  # non-nan indices
+        neg_depths = np.flatnonzero(depth[depth_ii] <= 0)  # indices to depth_ii
+        depth[depth_ii[neg_depths]] = np.nan
+
+        # Remove NaN depths and truncate to when science data begins being
+        # recorded and ends
+        depth_ii = np.flatnonzero(np.isfinite(depth))
+
+        sci_indices = all_sci_indices(self.dba)  # from ooidac.processing
+        if len(sci_indices) > 0:
+            starting_index = sci_indices[0]
+            ending_index = sci_indices[-1]
+        else:
+            return  # no science_indices, then we don't care to finish
+
+        depth_ii = depth_ii[
+            np.logical_and(
+                depth_ii >= starting_index,
+                depth_ii <= ending_index)
+        ]
+
+        # ---Create a smoothed depth timeseries for finding inflections ------#
+
+        # find start and end times first adding winsize * tsint timesteps
+        # onto the start and end to account for filter edge effects
+        itime_start = np.ceil(time_[depth_ii].min()) - winsize * tsint
+        itime_end = np.floor(time_[depth_ii].max()) + (winsize + 1) * tsint
+
+        itime = np.arange(itime_start, itime_end, tsint)
+        idepth = np.interp(itime, time_[depth_ii], depth[depth_ii],
+                           left=depth[depth_ii[0]], right=depth[depth_ii[-1]])
+        fz = boxcar_smooth_dataset(idepth, winsize)
+
+        # remove the extra points with filter edge effects
+        fz = fz[winsize:-winsize]
+        itime = itime[winsize:-winsize]
+        idepth = idepth[winsize:-winsize]
+
+        # Zero crossings of the time derivative of filtered depth are the
+        # inflection points.  Differential time is midway between the
+        # filtered timestamps.
+        # Originally, this used scipy's fsolver to locate the exact zero
+        # crossing, but only the timestamp before the zero crossing is needed
+        # to be the last in a profile and the timestamp after the zero
+        # crossing to be the first in the next profile.
+
+        dz_dt = np.diff(fz) / np.diff(itime)
+        dtime = itime[:-1] + np.diff(itime) / 2  # differential time
+
+        # Get the time point just after a zero crossing.  The flatnonzero
+        # statement below gets the point before a zero crossing.
+        zero_crossings_ii = np.flatnonzero(abs(np.diff(np.sign(dz_dt))))
+        zc_times = dtime[zero_crossings_ii] + (
+                dtime[zero_crossings_ii + 1] - dtime[zero_crossings_ii]) / 2.
+        self.inflection_times = zc_times
+
+        profile_switch_times = zc_times[np.logical_and(
+            zc_times > time_[starting_index],
+            zc_times < time_[ending_index]
+        )]
+        # insert the timestamp of the first science data point at the start
+        # and the last data point at the end.
+        profile_switch_times = np.insert(
+            profile_switch_times, [0, len(profile_switch_times)],
+            [time_[starting_index],
+             time_[ending_index]])
+
         # create a time range for each profile
         profile_times = np.empty((len(profile_switch_times) - 1, 2))
         profile_times[:, 0] = profile_switch_times[:-1]
@@ -167,6 +374,8 @@ class Profiles(object):
                 np.logical_and(
                     time_ >= pstart,
                     time_ <= pend))  # inclusive since before the inflection
+            if len(profile_ii) == 0:
+                continue
             self._indices.append(profile_ii)
 
     def orig_find_profiles_by_depth(self, tsint=2, filter_winsize=5):
@@ -282,15 +491,11 @@ class Profiles(object):
         filtered_z = filtered_z[sci_truncate_indices]
 
         delta_depth = calculate_delta_depth(filtered_z)
-        dts = interp_ts[:-1] + tsint / 2
 
         inflections = np.where(np.diff(delta_depth) != 0)[0] + 1
         if not inflections.any():
             return
 
-        # timestamp associated with diff of delta_depth (i.e. the timestamp of
-        # the 2nd derivative of depth timestamp)
-        ddts = dts[:-1] + tsint / 2
         # inflection_times = ddts[inflections]
         inflection_times = interp_ts[inflections]  # for some reason this
         # works better
@@ -406,8 +611,6 @@ class Profiles(object):
         profiles_to_remove.sort(reverse=True)
         for index in profiles_to_remove:
             self.indices.pop(index)
-
-
 
 
 def binarize_diff(data):

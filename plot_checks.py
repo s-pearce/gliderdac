@@ -6,10 +6,11 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+from pandas.plotting import register_matplotlib_converters
 import netCDF4
 from ooidac.data_classes import DbaData
-import pdb
 
+register_matplotlib_converters()
 
 REGEX = re.compile(r'[A-Za-z0-9_]+_(\d{8}T\d{6})Z_(?:delayed|rt).nc')
 
@@ -133,11 +134,11 @@ def plot_multiprofiles_and_dba(nc_file_list, plot_dir=None):
                     plot_dir, "{:s}.png".format(
                         source_file))
                 logging.debug("saving figure as {:s}".format(fig_file))
-                plt.savefig(fig_file)
+                plt.savefig(fig_file, dpi=300)
             else:
                 plt.show()
             plt.clf()
-            logging.debug("opening segment {:s}".format(prof_dba_path))
+            logging.info("opening segment {:s}".format(prof_dba_path))
             dba = DbaData(prof_dba_path)
             dba_path = dba.file_metadata['full_path']
             source_file = dba.file_metadata['source_file']
@@ -164,7 +165,7 @@ def plot_multiprofiles_and_dba(nc_file_list, plot_dir=None):
         fig_file = os.path.join(
             plot_dir, "{:s}.png".format(
                 source_file))
-        plt.savefig(fig_file)
+        plt.savefig(fig_file, dpi=300)
     else:
         plt.show()
 
@@ -215,4 +216,3 @@ if __name__ == "__main__":
     logging.basicConfig(format=log_format, level=log_level)
 
     plot_multiprofiles_and_dba(nc_files, plot_dir_path)
-
