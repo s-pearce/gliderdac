@@ -4,6 +4,7 @@
 import numpy as np
 import logging
 import os
+from ooidac import processing
 from configuration import DATA_CONFIG_LIST, TIMESENSOR
 logger = logging.getLogger(os.path.basename(__name__))
 
@@ -92,7 +93,7 @@ def filter_time_lessthan(profile_data, threshold=1):
     return remove_profile
 
 
-def filter_datatime_lessthan(profile_data, threshold=2):
+def filter_datatime_lessthan(profile_data, threshold=1, data_pts_threshold=5):
     """Profile filter that will remove a profile if the elapsed time for
     the data collected in a profile is less than `threshold` minutes.
 
@@ -102,11 +103,10 @@ def filter_datatime_lessthan(profile_data, threshold=2):
     """
     remove_profile = False
     timestamps = profile_data.getdata(TIMESENSOR)
-    data_indices = np.array([], dtype=np.int64)
-    for scidata_sensor in DATA_CONFIG_LIST:
-        data = profile_data.getdata(scidata_sensor)
-        finites = np.flatnonzero(np.isfinite(data))
-        data_indices = np.union1d(data_indices, finites)
+    data_indices = processing.all_sci_indices(profile_data)
+
+    if len(data_indices) < data_pts_threshold:
+        remove_profile = True
 
     sci_time = timestamps[data_indices]
 
