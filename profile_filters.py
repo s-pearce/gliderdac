@@ -93,7 +93,7 @@ def filter_time_lessthan(profile_data, threshold=1):
     return remove_profile
 
 
-def filter_datatime_lessthan(profile_data, threshold=1, data_pts_threshold=5):
+def filter_datatime_lessthan(profile_data, threshold=1, data_pts_threshold=3):
     """Profile filter that will remove a profile if the elapsed time for
     the data collected in a profile is less than `threshold` minutes.
 
