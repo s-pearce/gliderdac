@@ -666,3 +666,23 @@ def remove_initial_sci_zeros(gldata):
     if len(zeros_ii) > 0:
         gldata.update_data(DATA_CONFIG_LIST, zeros_ii, np.nan)
     return gldata
+
+
+def recalc_chlor(dba, dark_offset, scale_factor):
+    """ Recalculates chlorophyll from the raw signal
+
+    :param dba: GliderData instance
+    :param dark_offset: Dark Offset calibration parameter
+    :param scale_factor: Scale Factor calibration parameter
+    :return: The GliderData instance with the new parameter added
+    """
+    chlor_sig = dba.getdata('sci_flbbcd_chlor_sig')
+    chlor_units = dba['sci_flbbcd_chlor_units']
+    new_chlor = scale_factor * (chlor_sig - dark_offset)
+    chlor_units['data'] = new_chlor
+    chlor_units['attrs']['comment'] = (
+        "Chlorophyll recalculated from signal using calibration parameters")
+    chlor_units['sensor_name'] = "corrected_chlor"
+    dba.add_data(chlor_units)
+
+    return dba
