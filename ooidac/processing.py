@@ -676,13 +676,18 @@ def recalc_chlor(dba, dark_offset, scale_factor):
     :param scale_factor: Scale Factor calibration parameter
     :return: The GliderData instance with the new parameter added
     """
+    if 'sci_flbbcd_chlor_sig' not in dba.sensor_names:
+        logger.debug("sci_flbbcd_chlor_sig is not present to recalculate "
+                     "chlorophyll")
+        return None
     chlor_sig = dba.getdata('sci_flbbcd_chlor_sig')
-    chlor_units = dba['sci_flbbcd_chlor_units']
+    chlor_units = deepcopy(dba['sci_flbbcd_chlor_units'])
     new_chlor = scale_factor * (chlor_sig - dark_offset)
     chlor_units['data'] = new_chlor
     chlor_units['attrs']['comment'] = (
         "Chlorophyll recalculated from signal using calibration parameters")
     chlor_units['sensor_name'] = "corrected_chlor"
+    chlor_units['source_sensor'] = "sci_flbbcd_chlor_sig"
     dba.add_data(chlor_units)
 
     return dba
