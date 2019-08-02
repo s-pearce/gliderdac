@@ -158,6 +158,7 @@ class Profiles(object):
 
         self.inflection_times = profile_switch_times
 
+        # profile_switch_times = self.adjust_inflections(depth, time_)
         profile_switch_times = self.adjust_inflections(depth, time_)
 
         # use the time range to gather indices for each profile
@@ -173,6 +174,57 @@ class Profiles(object):
             self._indices.append(profile_ii)
 
     def adjust_inflections(self, depth, time_):
+        """Filters out bad inflection points.
+
+        Bad inflection points are small surface, bottom of dive, or mid-profile
+        wiggles that are not associated with true dive or climb inflections.
+        These false inflections are removed so that when profile indices are
+        created, they don't separate into separate small profiles.
+
+        :param depth:
+        :param time_:
+        :return:
+        """
+        inflections = self.inflection_times
+        inflection_depths = np.interp(
+            inflections, time_[np.isfinite(depth)],
+            depth[np.isfinite(depth)]
+        )
+
+        # First remove the false diving inflections (i.e. the small wiggles) by
+        # taking the good inflection and looking ahead until an inflection depth
+        # difference greater than 2m is found
+        inflx_ii = 0
+        fwd_counter = 1
+        inflx_to_keep = np.full(len(inflections), True)
+        while inflx_ii < len(inflections):
+            ii_depth = inflection_depths[inflx_ii]  # depth of current inflection
+            # look ahead for the next true inflection change
+            if inflx_ii + fwd_counter >= len(inflections):
+                break
+            while abs(inflection_depths[inflx_ii + fwd_counter] - ii_depth) < 2:
+                inflx_to_keep[inflx_ii + fwd_counter] = False
+                fwd_counter += 1
+                if inflx_ii + fwd_counter >= len(inflections):
+                    break
+            inflx_ii = inflx_ii + fwd_counter
+            fwd_counter = 1
+
+        # afterwards we may be left with mid profile direction changes that were
+        # greater than 2 m.  But now they can identified by not changing trend,
+        # since any of our good  inflection points left will change trend sign.
+        good_inflx_ii = np.flatnonzero(inflx_to_keep)
+        trends = np.diff(inflection_depths[good_inflx_ii])
+        # find where the trends are the same by getting the diff of the sign of
+        # the trend (which is also a diff).  Must add one because diff always
+        # results in N-1
+        same_trends = np.flatnonzero(np.diff(np.sign(trends)) == 0) + 1
+        good_inflx_ii = np.delete(good_inflx_ii, same_trends)
+        self.inflection_times = inflections[good_inflx_ii]
+
+        return inflections[good_inflx_ii]
+
+    def adjust_inflections_old(self, depth, time_):
         """Filters out bad inflection points.
 
         Bad inflection points are small surface, bottom of dive, or mid-profile

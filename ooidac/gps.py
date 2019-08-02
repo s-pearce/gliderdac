@@ -71,7 +71,8 @@ def iso2deg(iso_pos_element):
 
 def correct_uw_dr_pos(dba):
     """ Algorithm incomplete at this time
-
+    A good file to test this for that has fixes in the middle of the dive is
+    ce_311_2019_123_1_0.full.mrg from 311_R00007
     :param dba:
     :return:
     """
