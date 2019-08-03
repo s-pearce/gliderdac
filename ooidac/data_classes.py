@@ -94,10 +94,12 @@ class GliderData(object):
         # check that the sensor particle meets the format.
         keys = list(sensor_particle.keys())
         keys.sort()
-        if keys != ['attrs', 'data', 'sensor_name']:
-            logger.warning('sensor_particle needs the attributes "attrs", '
-                           '"data", and "sensor_name"')
-            return
+        for attr in ['attrs', 'data', 'sensor_name']:
+            if attr not in keys:
+                logger.warning('sensor_particle must have the attributes '
+                               '"attrs", "data", and "sensor_name". Data not '
+                               'added.')
+                return
 
         # if this data particle is already there (with the same name) don't
         # continue

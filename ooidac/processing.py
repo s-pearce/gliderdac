@@ -687,7 +687,7 @@ def recalc_chlor(dba, dark_offset, scale_factor):
     chlor_units['attrs']['comment'] = (
         "Chlorophyll recalculated from signal using calibration parameters")
     chlor_units['sensor_name'] = "corrected_chlor"
-    chlor_units['source_sensor'] = "sci_flbbcd_chlor_sig"
+    chlor_units['attrs']['source_sensor'] = "sci_flbbcd_chlor_sig"
     dba.add_data(chlor_units)
 
     return dba
