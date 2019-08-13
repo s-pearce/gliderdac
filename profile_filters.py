@@ -37,7 +37,7 @@ def filter_no_data(profile_data):
     return remove_profile
 
 
-def filter_small_data_ratio(profile_data, threshold=.05, data_pts_threshold=4):
+def filter_small_data_ratio(profile_data, threshold=.1, data_pts_threshold=4):
     """Profile filter that will remove a profile if all of the relevant science
     sensors ( listed by the SCI_DATA_PROFILE_LIST configuration parameter)
     have a ratio of good data to missing data that is smaller than the
