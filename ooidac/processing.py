@@ -514,8 +514,15 @@ def get_segment_time_and_pos(dba):
 
     time_diff = np.abs(dba.ts - mean_segment_time)
     closest_time_index = np.flatnonzero(time_diff == np.min(time_diff))
-    segment_lat['data'] = lat[closest_time_index]
-    segment_lon['data'] = lon[closest_time_index]
+    seg_lat = lat[closest_time_index]
+    if len(closest_time_index) > 1:
+        seg_lat = np.mean(lat[closest_time_index])
+        seg_lon = np.mean(lon[closest_time_index])
+    else:
+        seg_lat = lat[closest_time_index]
+        seg_lon = lon[closest_time_index]
+    segment_lat['data'] = seg_lat
+    segment_lon['data'] = seg_lon
     segment_lat['nc_var_name'] = "lat_uv"
     segment_lon['nc_var_name'] = "lon_uv"
 
