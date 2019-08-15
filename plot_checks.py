@@ -9,6 +9,7 @@ import pandas as pd
 from pandas.plotting import register_matplotlib_converters
 import netCDF4
 from ooidac.data_classes import DbaData
+from ooidac.utilities import date_xlabel
 
 register_matplotlib_converters()
 
@@ -42,7 +43,8 @@ def plot_dba(ts, depth):
     ax = plt.gca()
     ax.invert_yaxis()
     plt.ylabel("Depth, m")
-    plt.xlabel("Time")
+    plt.xlabel(date_xlabel(ts))
+    # plt.xlabel("Time")
 
 
 def get_profile_graph_angle(profile_time, profile_depth, ax):

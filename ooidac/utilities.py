@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import datetime as dt
 
 
 def fwd_fill(x, init_nan_fill=None):
@@ -107,3 +108,40 @@ def plot_vert_lines(x, style='k:', ax=None):
     ylims = ax.get_ylim()
     y = np.array([np.repeat(ylims[0], n), np.repeat(ylims[1], n)])
     plt.plot(x, y, style)
+
+
+def date_xlabel(time_range):
+    """date_xlabel
+    For use with plotting time on the x-axis, create_date_label provides a
+    overview date range for the xlabel of the plot.  Current implementation
+    is when the plotted data is over the range of hours to days and assumes
+    that matplotlib auto generated meaningful time xtick marks from a
+    datetime object.
+
+    :param time_range: sequence of datetime objects in sequential order.
+    """
+    if len(time_range) < 2:
+        raise InputError("time_range must be a sequence of date times")
+    t1 = time_range[0]
+    t2 = time_range[-1]
+    if not isinstance(t1, dt.datetime) or not isinstance(t2, dt.datetime):
+        raise InputError(
+            "Time Range sequence elements must be datetime objects")
+
+    date_label = t1.date().isoformat()
+
+    year_diff = t1.year != t2.year
+    mnth_diff = t1.month != t2.month
+    day_diff = t1.day != t2.day
+    if year_diff or mnth_diff or day_diff:
+        date_label += (
+            "--" +
+            (year_diff * ("{:02d}".format(t2.year) + "-")) +
+            (mnth_diff * ("{:02d}".format(t2.month) + "-")) +
+            (day_diff * "{:02d}".format(t2.day))
+        )
+    return date_label
+
+
+class InputError(Exception):
+    pass
