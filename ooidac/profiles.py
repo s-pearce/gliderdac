@@ -60,7 +60,7 @@ class Profiles(object):
     #  list, when they could just say "return" alone.
 
     def find_profiles_by_depth(
-            self, depth_sensor='m_depth', tsint=2, winsize=5):
+            self, depth_sensor='m_depth', tsint=2, winsize=10):
         """Discovery of profiles in a glider segment using depth and time.
 
         Profiles are discovered by smoothing the depth timeseries and using the
