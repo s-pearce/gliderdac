@@ -430,7 +430,7 @@ class Profiles(object):
                 continue
             self._indices.append(profile_ii)
 
-    def orig_find_profiles_by_depth(self, tsint=2, filter_winsize=5):
+    def orig_find_profiles_by_depth(self, tsint=2, filter_winsize=10):
         """Returns the start and stop timestamps for every profile indexed from
         the depth timeseries
 

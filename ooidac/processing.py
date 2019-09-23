@@ -10,6 +10,7 @@ from ooidac.readers.slocum import parse_dba_header
 from ooidac.utilities import fwd_fill
 from ooidac.ctd import calculate_practical_salinity, calculate_density
 from ooidac.processing_dir.fluorometer import flo_bback_total
+from ooidac.processing_dir.oxygen_calculation import calc_o2, do2_SVU
 from ooidac.constants import (
     SLOCUM_TIMESTAMP_SENSORS,
     SLOCUM_PRESSURE_SENSORS,
@@ -529,66 +530,6 @@ def get_segment_time_and_pos(dba):
     return segment_time, segment_lat, segment_lon
 
 
-def o2_s_and_p_comp(dba):
-    if 'sci_oxy4_oxygen' not in dba.sensor_names:
-        logger.warning(
-            'Oxygen data not found in data file {:s}'.format(dba.source_file)
-        )
-        return dba
-
-    oxygen = dba['sci_oxy4_oxygen']
-    oxy = oxygen['data'].copy()
-    timestamps = dba.getdata('sci_m_present_time')
-    sp = dba.getdata('salinity')
-    p = dba.getdata('llat_pressure')
-    t = dba.getdata('sci_water_temp')
-
-    oxy_ii = np.isfinite(oxy)
-    oxy = oxy[oxy_ii]
-    oxy_ts = timestamps[oxy_ii]
-
-    sp = np.interp(oxy_ts, timestamps[np.isfinite(sp)], sp[np.isfinite(sp)])
-    p = np.interp(oxy_ts, timestamps[np.isfinite(p)], p[np.isfinite(p)])
-    t = np.interp(oxy_ts, timestamps[np.isfinite(t)], t[np.isfinite(t)])
-
-    lon = dba.getdata('llat_longitude')[oxy_ii]  # should already be interp'ed
-    lat = dba.getdata('llat_latitude')[oxy_ii]
-
-    # density calculation from GSW toolbox
-    sa = gsw.SA_from_SP(sp, p, lon, lat)
-    ct = gsw.CT_from_t(sa, t, p)
-    pdens = gsw.rho(sa, ct, 0.0)  # potential referenced to p=0
-
-    # Convert from volume to mass units:
-    do = 1000*oxy/pdens
-
-    # Pressure correction:
-    do = (1 + (0.032*p)/1000) * do
-
-    # Salinity correction (Garcia and Gordon, 1992, combined fit):
-    s0 = 0
-    ts = np.log((298.15-t)/(273.15+t))
-    b0 = -6.24097e-3
-    b1 = -6.93498e-3
-    b2 = -6.90358e-3
-    b3 = -4.29155e-3
-    c0 = -3.11680e-7
-    bts = b0 + b1*ts + b2*ts**2 + b3*ts**3
-    do = np.exp((sp-s0)*bts + c0*(sp**2-s0**2)) * do
-
-    oxygen['sensor_name'] = 'oxygen'
-    oxygen['data'] = np.full(len(oxy_ii), np.nan)
-    oxygen['data'][oxy_ii] = do
-    oxygen['attrs']['units'] = "umol kg-1"
-    oxygen['attrs']['comment'] = (
-        "Oxygen concentration has been compensated for salinity and "
-        "pressure, but has not been corrected for the depth offset "
-        "due to pitch of the glider and sensor offset from the CTD.")
-    dba.add_data(oxygen)
-
-    return dba
-
-
 def backscatter_total(gldata):
     """
 
@@ -684,8 +625,8 @@ def recalc_chlor(dba, dark_offset, scale_factor):
     :return: The GliderData instance with the new parameter added
     """
     if 'sci_flbbcd_chlor_sig' not in dba.sensor_names:
-        logger.debug("sci_flbbcd_chlor_sig is not present to recalculate "
-                     "chlorophyll")
+        logger.warning(
+            "sci_flbbcd_chlor_sig is not present to recalculate chlorophyll")
         return None
     chlor_sig = dba.getdata('sci_flbbcd_chlor_sig')
     chlor_units = deepcopy(dba['sci_flbbcd_chlor_units'])
@@ -696,5 +637,142 @@ def recalc_chlor(dba, dark_offset, scale_factor):
     chlor_units['sensor_name'] = "corrected_chlor"
     chlor_units['attrs']['source_sensor'] = "sci_flbbcd_chlor_sig"
     dba.add_data(chlor_units)
+
+    return dba
+
+
+def recalc_par(dba, sensor_dark, scale_factor):
+    """ Recalculates PAR from the raw signal
+
+    :param dba: GliderData instance
+    :param sensor_dark: Dark Offset calibration parameter from the calibration
+        certificate
+    :param scale_factor: Appropriate units Wet Scale Factor calibration
+        parameter from the calibration certificate
+    :return: The GliderData instance with the new parameter added
+    """
+    if 'sci_bsipar_sensor_volts' not in dba.sensor_names:
+        logger.warning(
+            "sci_bsipar_sensor_volts is not present to recalculate PAR")
+        return None
+    par_volts = dba.getdata('sci_bsipar_sensor_volts')
+    # remove the initialization where sensor volts == 0.0
+    par_volts[par_volts == 0.0] = np.nan
+    par_units = deepcopy(dba['sci_bsipar_par'])
+    new_par = (par_volts - sensor_dark) / scale_factor
+    par_units['data'] = new_par
+    par_units['attrs']['comment'] = (
+        "PAR recalculated from signal using calibration parameters")
+    par_units['sensor_name'] = "corrected_par"
+    par_units['attrs']['source_sensor'] = "sci_bsipar_sensor_volts"
+    dba.add_data(par_units)
+
+    return dba
+
+
+def check_and_recalc_o2(dba, calc_type, cal_dict):
+    """ Checks the oxygen calculation and re-calculates from calphase if
+    salinity was entered as 35 instead of 0 and uses the real gas constant if
+    the ideal gas constant was used for MkII calculations in firmware earlier
+    than 4.5.7.
+
+    :param dba: GliderData instance
+    :param calc_type
+    :param cal_dict:
+    :return: The GliderData instance with the new parameter added
+    """
+    if 'sci_oxy4_calphase' not in dba.sensor_names:
+        logger.warning(
+            "sci_oxy4_calphase is not present to recalculate oxygen")
+        return None
+    calphase = dba.getdata('sci_oxy4_calphase')
+    oxytemp = dba.getdata('sci_oxy4_temp')
+    bads = calphase == 0.0
+    calphase[bads] = np.nan
+    oxytemp[bads] = np.nan
+    if calc_type == 'SVU':
+        csv = cal_dict['SVUFoilCoef']
+        conc_coef = cal_dict['ConcCoef']
+        new_oxy = do2_SVU(calphase, oxytemp, csv, conc_coef, salt=0.0)
+    elif calc_type == 'MkII':
+        C = cal_dict['C']
+        fpt = cal_dict['FoilPolyDegT']
+        fpo = cal_dict['FoilPolyDegO']
+        conc_coef = cal_dict['ConcCoef']
+        new_oxy = calc_o2(calphase, oxytemp, C, M=fpt, N=fpo, cc=conc_coef)[0]
+    else:
+        logger.warning(
+            "No oxygen calculation type configured for re-calculation.  Add "
+            "'calculation_type': 'SVU' or 'MkII' to the 'corrected_oxy' "
+            "section in sensor_defs.json")
+        return None
+
+    oxy_units = deepcopy(dba['sci_oxy4_oxygen'])
+    oxy_units['data'] = new_oxy
+    oxy_units['attrs']['comment'] = (
+        "Oxygen recalculated from signal using calibration parameters")
+    oxy_units['sensor_name'] = "corrected_oxygen"
+    oxy_units['attrs']['source_sensor'] = "sci_oxy4_calphase, sci_oxy4_temp"
+    dba.add_data(oxy_units)
+
+    return dba
+
+
+def o2_s_and_p_comp(dba, o2sensor='sci_oxy4_oxygen'):
+    if o2sensor not in dba.sensor_names:
+        logger.warning(
+            'Oxygen data not found in data file {:s}'.format(dba.source_file)
+        )
+        return dba
+
+    oxygen = dba[o2sensor]
+    oxy = oxygen['data'].copy()
+    timestamps = dba.getdata('sci_m_present_time')
+    sp = dba.getdata('salinity')
+    p = dba.getdata('llat_pressure')
+    t = dba.getdata('sci_water_temp')
+
+    oxy_ii = np.isfinite(oxy)
+    oxy = oxy[oxy_ii]
+    oxy_ts = timestamps[oxy_ii]
+
+    sp = np.interp(oxy_ts, timestamps[np.isfinite(sp)], sp[np.isfinite(sp)])
+    p = np.interp(oxy_ts, timestamps[np.isfinite(p)], p[np.isfinite(p)])
+    t = np.interp(oxy_ts, timestamps[np.isfinite(t)], t[np.isfinite(t)])
+
+    lon = dba.getdata('llat_longitude')[oxy_ii]  # should already be interp'ed
+    lat = dba.getdata('llat_latitude')[oxy_ii]
+
+    # density calculation from GSW toolbox
+    sa = gsw.SA_from_SP(sp, p, lon, lat)
+    ct = gsw.CT_from_t(sa, t, p)
+    pdens = gsw.rho(sa, ct, 0.0)  # potential referenced to p=0
+
+    # Convert from volume to mass units:
+    do = 1000*oxy/pdens
+
+    # Pressure correction:
+    do = (1 + (0.032*p)/1000) * do
+
+    # Salinity correction (Garcia and Gordon, 1992, combined fit):
+    s0 = 0
+    ts = np.log((298.15-t)/(273.15+t))
+    b0 = -6.24097e-3
+    b1 = -6.93498e-3
+    b2 = -6.90358e-3
+    b3 = -4.29155e-3
+    c0 = -3.11680e-7
+    bts = b0 + b1*ts + b2*ts**2 + b3*ts**3
+    do = np.exp((sp-s0)*bts + c0*(sp**2-s0**2)) * do
+
+    oxygen['sensor_name'] = 'oxygen'
+    oxygen['data'] = np.full(len(oxy_ii), np.nan)
+    oxygen['data'][oxy_ii] = do
+    oxygen['attrs']['units'] = "umol kg-1"
+    oxygen['attrs']['comment'] = (
+        "Oxygen concentration has been compensated for salinity and "
+        "pressure, but has not been corrected for the depth offset "
+        "due to pitch of the glider and sensor offset from the CTD.")
+    dba.add_data(oxygen)
 
     return dba

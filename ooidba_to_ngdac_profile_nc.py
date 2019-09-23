@@ -119,6 +119,25 @@ def main(args):
     # Write one NetCDF file for each input file
     output_nc_files = []
     processed_dbas = []
+
+    # Pre-processing
+    # ToDo: clean this up
+    if 'corrected_oxygen' in ncw.config_sensor_defs:
+        calc_type = ncw.config_sensor_defs['corrected_oxygen']['attrs'][
+            'calculation_type']
+        cal_dict = ncw.config_sensor_defs['corrected_oxygen']['attrs'].pop(
+            'cal_coefs')
+    if 'corrected_chlor' in ncw.config_sensor_defs:
+        darkoffset = ncw.config_sensor_defs['corrected_chlor']['attrs'][
+            'dark_offset']
+        sf = ncw.config_sensor_defs['corrected_chlor']['attrs'][
+            'scale_factor']
+    if 'corrected_par' in ncw.config_sensor_defs:
+        sensor_dark = ncw.config_sensor_defs['corrected_par']['attrs'][
+            'sensor_dark']
+        sf = ncw.config_sensor_defs['corrected_par']['attrs'][
+            'scale_factor']
+
     for dba_file in dba_files:
         # change to non-indented log format (see above)
         logmanager.update_format(start_log_format)
@@ -194,12 +213,17 @@ def main(args):
 
         # Process `sci_oxy4_oxygen` to OOI L2 compensated for salinity and
         # pressure and converted to umol/kg.
-        if 'sci_oxy4_oxygen' in dba.sensor_names:
+        if 'corrected_oxygen' in ncw.config_sensor_defs:
+            calc_type = ncw.config_sensor_defs['corrected_oxygen']['attrs'][
+                'calculation_type']
+            dba = processing.check_and_recalc_o2(dba, calc_type, cal_dict)
+            dba = processing.o2_s_and_p_comp(dba, 'corrected_oxygen')
+        elif 'sci_oxy4_oxygen' in dba.sensor_names:
             dba = processing.o2_s_and_p_comp(dba)
             if dba is None:
                 continue
 
-        # Re_calculate chlorophyll for 383-00008
+        # Re_calculate chlorophyll
         if 'corrected_chlor' in ncw.config_sensor_defs:
             darkoffset = ncw.config_sensor_defs['corrected_chlor']['attrs'][
                 'dark_offset']
@@ -207,6 +231,17 @@ def main(args):
                 'scale_factor']
             dba = processing.recalc_chlor(
                 dba, dark_offset=darkoffset, scale_factor=sf)
+            if dba is None:
+                continue
+
+        # Re_calculate PAR
+        if 'corrected_par' in ncw.config_sensor_defs:
+            sensor_dark = ncw.config_sensor_defs['corrected_par']['attrs'][
+                'sensor_dark']
+            sf = ncw.config_sensor_defs['corrected_par']['attrs'][
+                'scale_factor']
+            dba = processing.recalc_par(
+                dba, sensor_dark=sensor_dark, scale_factor=sf)
             if dba is None:
                 continue
 
