@@ -769,7 +769,11 @@ def o2_s_and_p_comp(dba, o2sensor='sci_oxy4_oxygen'):
     oxygen['data'] = np.full(len(oxy_ii), np.nan)
     oxygen['data'][oxy_ii] = do
     oxygen['attrs']['units'] = "umol kg-1"
-    oxygen['attrs']['comment'] = (
+    if 'comment' in oxygen['attrs']:
+        comment = oxygen['attrs']['comment'] + "; "
+    else:
+        comment = ''
+    oxygen['attrs']['comment'] = comment + (
         "Oxygen concentration has been compensated for salinity and "
         "pressure, but has not been corrected for the depth offset "
         "due to pitch of the glider and sensor offset from the CTD.")
