@@ -118,6 +118,35 @@ def filter_datatime_lessthan(profile_data, threshold=1, data_pts_threshold=4):
     return remove_profile
 
 
+def filter_no_data_at_profile_start(profile_data):
+    """ Profile filter that will remove a profile if there is no science data at
+     the beginning (defined as the first 10%) of the profile with extra
+     emphasis on pressure from the CTD.  This tries to eliminate the case where
+     a short profile that should have no data, turns on data sampling just
+     before the inflection point and has enough science data to pass the other
+     filters.  The rationale being that if there is no data at the start of a
+     profile, it was not intended to be sampled.
+
+    Note: a profile not removed by this filter might still be removed by
+    another active filter.
+    :param profile_data:
+    :return: bool value if the profile is to be removed or not.
+    """
+    remove_profile = False
+    timestamps = profile_data.getdata(TIMESENSOR)
+    # ToDo: change explicit pressure here to a PRESSURESENSOR variable
+    pres = profile_data.getdata('sci_water_pressure')
+    first_portion_of_dive = list(range(int(len(timestamps)/10)))
+    data_indices = processing.all_sci_indices(profile_data)
+    pressure_ii = np.flatnonzero(np.isfinite(pres))
+    if len(np.intersect1d(pressure_ii, first_portion_of_dive)) == 0:
+        remove_profile = True
+    if len(np.intersect1d(data_indices, first_portion_of_dive)) == 0:
+        remove_profile = True
+
+    return remove_profile
+
+
 def cum_data_time_sum(sci_timestamps):
     """To eliminate the case where a small amount of science data points are at
     the beginning of a profile, and a small amount exists at the end of a
