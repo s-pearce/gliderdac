@@ -133,6 +133,8 @@ def filter_no_data_at_profile_start(profile_data, threshold=1):
     :return: bool value if the profile is to be removed or not.
     """
     remove_profile = False
+    if 'rtime' in profile_data.source_file:
+        return remove_profile
     timestamps = profile_data.getdata(TIMESENSOR)
     # ToDo: change explicit pressure here to a PRESSURESENSOR variable
     pres = profile_data.getdata('sci_water_pressure')
