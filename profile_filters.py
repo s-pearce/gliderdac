@@ -141,7 +141,36 @@ def filter_no_data_at_profile_start(profile_data):
     pressure_ii = np.flatnonzero(np.isfinite(pres))
     if len(np.intersect1d(pressure_ii, first_portion_of_dive)) == 0:
         remove_profile = True
-    if len(np.intersect1d(data_indices, first_portion_of_dive)) == 0:
+    elif len(np.intersect1d(data_indices, first_portion_of_dive)) == 0:
+        remove_profile = True
+
+    return remove_profile
+
+
+def filter_small_data_depth_ratio(
+        profile_data, threshold=.1, data_pts_threshold=4):
+    """Profile filter that will remove a profile if the ratio of
+    the cumulative sum of CTD pressure data (excluding large gaps) to the full
+    depth of the profile is smaller than `threshold`.
+
+    Note: a profile not removed by this filter might still be removed by
+    another active filter.
+    :return:
+    """
+    remove_profile = False
+    depth = profile_data.getdata('m_depth')
+    total_profile_depth = np.nanmax(depth) - np.nanmin(depth)
+    pres = profile_data.getdata('llat_pressure')
+
+    if (
+            np.count_nonzero(np.isfinite(pres)) > data_pts_threshold
+            and total_profile_depth > 0):
+        sum_pres_depth = abs(cum_depth_sum(pres))
+
+        depth_ratio = sum_pres_depth / total_profile_depth
+        if depth_ratio < threshold:
+            remove_profile = True
+    else:
         remove_profile = True
 
     return remove_profile
@@ -162,3 +191,19 @@ def cum_data_time_sum(sci_timestamps):
     no_gaps_ii = sci_dt < 3 * sci_dt_median
     cum_sci_sample_time = np.sum(sci_dt[no_gaps_ii])
     return cum_sci_sample_time
+
+
+def cum_depth_sum(pressure):
+    pres = pressure[np.isfinite(pressure)]
+    diff_pres = np.diff(pres)
+    non_zero = np.flatnonzero(abs(diff_pres) > 0.0)
+    diff_pres = diff_pres[non_zero]
+    #
+    mean = np.mean(diff_pres)
+    std = np.std(diff_pres)
+
+    # exclude any large jumps in depth which are considered gaps
+    no_gaps = np.flatnonzero(abs(diff_pres) < abs(mean) + 3*std)
+
+    cum_depth = np.sum(diff_pres[no_gaps])
+    return cum_depth
