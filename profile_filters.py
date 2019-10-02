@@ -118,7 +118,7 @@ def filter_datatime_lessthan(profile_data, threshold=1, data_pts_threshold=4):
     return remove_profile
 
 
-def filter_no_data_at_profile_start(profile_data):
+def filter_no_data_at_profile_start(profile_data, threshold=1):
     """ Profile filter that will remove a profile if there is no science data at
      the beginning (defined as the first 10%) of the profile with extra
      emphasis on pressure from the CTD.  This tries to eliminate the case where
@@ -137,6 +137,16 @@ def filter_no_data_at_profile_start(profile_data):
     # ToDo: change explicit pressure here to a PRESSURESENSOR variable
     pres = profile_data.getdata('sci_water_pressure')
     first_portion_of_dive = list(range(int(len(timestamps)/10)))
+    time_len = (
+            timestamps[first_portion_of_dive][-1]
+            - timestamps[first_portion_of_dive][0]
+    )
+    # use the amount of time that is greater, the first 10% of the dive,
+    # or at least `threshold` minutes
+    if time_len/60. < threshold:
+        first_portion_of_dive = np.flatnonzero(
+            timestamps < timestamps[0]+60*threshold)
+
     data_indices = processing.all_sci_indices(profile_data)
     pressure_ii = np.flatnonzero(np.isfinite(pres))
     if len(np.intersect1d(pressure_ii, first_portion_of_dive)) == 0:
