@@ -8,10 +8,12 @@ Full documentation available at the [wiki](https://github.com/s-pearce/gliderdac
 
 ## Requirements
 + Python 3.*
-+ Conda
 + [netCDF4](https://unidata.github.io/netcdf4-python/netCDF4/index.html)
 + [numpy](https://www.numpy.org/)
 + [scipy](https://www.scipy.org/)
++ [matplotlib](https://matplotlib.org/)
++ [GSW-Python](https://github.com/TEOS-10/GSW-Python)
++ [Shapely](https://pypi.org/project/Shapely/)
 
 ## Installation
 
