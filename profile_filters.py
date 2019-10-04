@@ -130,6 +130,8 @@ def filter_no_data_at_profile_start(profile_data, threshold=1):
     Note: a profile not removed by this filter might still be removed by
     another active filter.
     :param profile_data:
+    :param threshold: The minimum number of minutes at the start of the profile
+        that requires data to occur in.
     :return: bool value if the profile is to be removed or not.
     """
     remove_profile = False
