@@ -657,7 +657,7 @@ class Profiles(object):
                 if remove_profile:
                     profiles_to_remove.append(ii)
                     logger.debug('Profile {:d} removed by {:s}'.format(
-                        profile_ii, func.__name__
+                        ii, func.__name__
                     ))
                     break
         # need to reverse profiles_to_remove indexes so that after a profile
