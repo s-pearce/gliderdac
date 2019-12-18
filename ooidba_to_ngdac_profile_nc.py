@@ -7,6 +7,7 @@ import argparse
 import shutil
 # import pdb
 import glob
+import json
 # temporary addition to test this script -SP 2019-01-30 to be able to load
 # gncutils -SP 2019-03-11 Maybe don't need after all.  We'll see.
 # sys.path.append('C:\\Users\\spearce\\code\\python\\gliderdac\\')
@@ -86,6 +87,23 @@ def main(args):
         logging.error('No Slocum dba files specified')
         return 1
 
+    # Create a status.json file in the config directory given to hold
+    # information from the latest run
+    status_path = os.path.join(config_path, 'status.json')
+    if not os.path.exists(status_path):
+        status = {
+            "next_profile_id": None, "files_processed": [],
+            "profiles_created": [], "profiles_uploaded": []}
+    else:
+        with open(status_path, 'r') as fid:
+            status = json.load(fid)
+
+    # get the next profile id if this dataset has been run before.
+    # ToDo: for now this works for realtime, but it should be changed to
+    #  exclude cases where you might re-run a recovered dataset and clobber.
+    if status['next_profile_id']:
+        start_profile_id = status['next_profile_id']
+
     # Create the Trajectory NetCDF writer
     ncw = NetCDFWriter(
         config_path, output_path, comp_level=comp_level,
@@ -109,15 +127,13 @@ def main(args):
         sys.stdout.write('{}\n'.format(ncw))
         return 0
 
-    # Create a temporary directory for creating/writing NetCDF prior to
-    # moving them to output_path
-
     # update the logging format so that indentation can show log statements
     # sub-level to the file being processed after an initial processing file
     # statement
 
     # Write one NetCDF file for each input file
     output_nc_files = []
+    source_dba_files = []
     processed_dbas = []
 
     # Pre-processing
@@ -321,7 +337,8 @@ def main(args):
             # ToDo: fix the history writer in NetCDFWriter
             out_nc_file = ncw.write_profile(profile, scalars)
             if out_nc_file:  # can be None if skipping
-                output_nc_files.append((dba_file, out_nc_file))
+                output_nc_files.append(out_nc_file)
+                source_dba_files.append(dba_file)
 
         processed_dbas.append(dba_file)
 
@@ -335,12 +352,20 @@ def main(args):
             ncw.tmp_dir)
         )
 
+    # write the processed files and last profile id to status.json
+    logging.debug('Writing run status to status.json')
+    status['next_profile_id'] = ncw.profile_id
+    status['files_processed'].extend(processed_dbas)
+    status['profiles_created'].extend(output_nc_files)
+    with open(status_path, 'w') as fid:
+        json.dump(status, fid)
+
     # Print the list of files created
     sys.stdout.write('Profiles NC files written:\n')
-    for output_nc_file in output_nc_files:
-        base_nc = os.path.basename(output_nc_file[1])
-        base_data = os.path.basename(output_nc_file[0])
-        os.chmod(output_nc_file[1], 0o664)
+    for source_dba, output_nc_file in zip(source_dba_files, output_nc_files):
+        base_nc = os.path.basename(output_nc_file)
+        base_data = os.path.basename(source_dba)
+        os.chmod(output_nc_file, 0o664)
         sys.stdout.write('\t{:s} -> {:s}\n'.format(base_data, base_nc))
 
     return 0
@@ -388,7 +413,7 @@ if __name__ == '__main__':
                                 'id. If not specified or <1 the mean profile '
                                 'unix timestamp is used'),
                             type=int,
-                            default=0)
+                            default=1)
 
     arg_parser.add_argument('-o', '--output_path',
                             help=(
