@@ -1,0 +1,107 @@
+How To Correct/Recalculate Oxygen Data from Calphase in the DAC code:
+
+A. MkII calculation (Not multipoint calibrated optodes)
+B. SVU calculation (Multipoint calibrated optodes)
+
+
+A. For a recalculation using the MkII calculation (previous to using the
+    SVU calculation):
+Edit the JSON entry in sensor_defs.json for that deployment to look like:
+    "corrected_oxygen": {
+        "attrs": {
+            "_FillValue": NaN,
+            "accuracy": " ",
+            "ancillary_variables": " ",
+            "instrument": "instrument_oxygen",
+            "long_name": "Dissolved Oxygen Concentration",
+            "observation_type": "calculated",
+            "OOI_data_product_name": "DOCONCS",
+            "OOI_data_level": "L2a",
+            "platform": "platform",
+            "precision": " ",
+            "resolution": " ",
+            "standard_name": "mole_concentration_of_dissolved_molecular_oxygen_in_sea_water",
+            "valid_max": 500.0,
+            "valid_min": 0.0,
+            "calculation_type": "MkII",
+            "cal_coefs": {
+                "C": [
+                    -2.822802e-06, -6.776306e-06, 0.001803907, -0.1930332, 0.0006291334,
+                    -2.982824e-07, 10.49904, -0.0545574, 9.256498e-05, -4.397045e-07,
+                    -297.128, 2.236731, -0.007953454, 4.779582e-05, 7.511726e-08,
+                    3624.938, -37.62469, 0.2454485, -0.003315326, 4.75364e-05,
+                    -4.883913e-07, 0.0, 0.0, 0.0, 0.0,
+                    0.0, 0.0, 0.0
+                ],
+                "FoilPolyDegT": [
+                    1, 0, 0, 0, 1, 2, 0, 1, 2, 3, 0, 1, 2, 3,
+                    4, 0, 1, 2, 3, 4, 5, 0, 0, 0, 0, 0, 0, 0
+                ],
+                "FoilPolyDegO": [
+                    4, 5, 4, 3, 3, 3, 2, 2, 2, 2, 1, 1, 1, 1,
+                    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+                ],
+                "ConcCoef": [-7.147465E-01, 1.137800E+00]
+            }
+        },
+        "dimension": "time",
+        "nc_var_name": "dissolved_oxygen",
+        "type": "f8"
+    },
+
+where the name of the entry is changed from "oxygen" to "corrected_oxygen"
+and the "cal_coefs" and "calculation_type" entries are added to the
+"attrs" dictionary.  The "cal_coefs" entry is a sub-dictionary where "C"
+is "FoilCoefA" and "FoilCoefB" from the calibration coefficients from are 
+concatenated into a list; and "FoilPolyDegT" and "FoilPolyDegO" are the
+power coefficients from the calibration. Note that "FoilCoefA", 
+"FoilCoefB", "FoilPolyDegT", and "FoilPolyDegO" are values associated 
+with the foil ID, rather than the specific optode and calibration.
+"ConcCoef" is a value specifically associated with the optode and calibration.
+Everything else stays the same as the original sensor_defs.json entry.
+
+B. For recalculation using the SVU calculation:
+Edit the JSON entry in sensor_defs.json for that deployment to look like:
+    "corrected_oxygen": {
+        "attrs": {
+            "_FillValue": NaN,
+            "accuracy": " ",
+            "ancillary_variables": " ",
+            "instrument": "instrument_oxygen",
+            "long_name": "Dissolved Oxygen Concentration",
+            "observation_type": "calculated",
+            "OOI_data_product_name": "DOCONCS",
+            "OOI_data_level": "L2a",
+            "platform": "platform",
+            "precision": " ",
+            "resolution": " ",
+            "standard_name": "mole_concentration_of_dissolved_molecular_oxygen_in_sea_water",
+            "valid_max": 500.0,
+            "valid_min": 0.0,
+            "calculation_type": "SVU",
+            "cal_coefs": {
+                "SVUFoilCoef": [
+                    2.677422E-03,
+                    1.151494E-04,
+                    2.177496E-06,
+                    2.289442E+02,
+                    -4.103772E-01,
+                    -5.843925E+01,
+                    4.550254E+00
+                ],
+                "ConcCoef": [-2.562374E+00, 1.079771E+00]
+            }
+        },
+        "dimension": "time",
+        "nc_var_name": "dissolved_oxygen",
+        "type": "f8"
+    },
+
+where the name of the entry is changed from "oxygen" to "corrected_oxygen"
+and the "cal_coefs" and "calculation_type" entries are added to the
+"attrs" dictionary.  The "cal_coefs" entry is a sub-dictionary where 
+"SVUFoilCoef" are the Sterm-Volmer-Uchida calibration coefficients and 
+"ConcCoef" are the Concentration Coefficient values for adjusting a
+calibration.  Both of these are found in the calibration certificate or
+from the optode's configuration.
+Everything else stays the same as the original sensor_defs.json entry.
