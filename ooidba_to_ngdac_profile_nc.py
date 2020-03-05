@@ -78,6 +78,8 @@ def main(args):
         logging.info(
             'No NetCDF output_path specified. Using cwd: {:s}'.format(
                 output_path))
+    else:
+        output_path = os.path.realpath(output_path)
 
     if not os.path.isdir(output_path):
         logging.error('Invalid output_path: {:s}'.format(output_path))
@@ -93,7 +95,9 @@ def main(args):
     if not os.path.exists(status_path):
         status = {
             "next_profile_id": None, "files_processed": [],
-            "profiles_created": [], "profiles_uploaded": []}
+            "profiles_created": [], "profiles_uploaded": [],
+            "raw_directory": os.path.realpath(dba_files[0]),
+            "nc_directory": output_path}
     else:
         with open(status_path, 'r') as fid:
             status = json.load(fid)
@@ -337,10 +341,10 @@ def main(args):
             # ToDo: fix the history writer in NetCDFWriter
             out_nc_file = ncw.write_profile(profile, scalars)
             if out_nc_file:  # can be None if skipping
-                output_nc_files.append(out_nc_file)
-                source_dba_files.append(dba_file)
+                output_nc_files.append(os.path.basename(out_nc_file))
+                source_dba_files.append(os.path.basename(dba_file))
 
-        processed_dbas.append(dba_file)
+        processed_dbas.append(os.path.basename(dba_file))
 
     # Delete the temporary directory once files have been moved
     try:
@@ -363,10 +367,8 @@ def main(args):
     # Print the list of files created
     sys.stdout.write('Profiles NC files written:\n')
     for source_dba, output_nc_file in zip(source_dba_files, output_nc_files):
-        base_nc = os.path.basename(output_nc_file)
-        base_data = os.path.basename(source_dba)
         os.chmod(output_nc_file, 0o664)
-        sys.stdout.write('\t{:s} -> {:s}\n'.format(base_data, base_nc))
+        sys.stdout.write('\t{:s} -> {:s}\n'.format(source_dba, output_nc_file))
 
     return 0
 
@@ -389,7 +391,7 @@ class LogManager:
 
 if __name__ == '__main__':
     arg_parser = argparse.ArgumentParser(
-        description=main.__doc__,
+        description=str(main.__doc__),
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
 
