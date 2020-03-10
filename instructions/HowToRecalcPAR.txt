@@ -1,0 +1,41 @@
+How To Correct/Recalculate PAR Data from the raw sensor volts in the DAC code:
+
+For a recalculation of the PAR values from the raw sensor volts in the 
+m_bsipar_sensor_volts sensor:
+Edit the JSON entry for PAR in sensor_defs.json for that deployment to 
+look like:
+
+    "corrected_par": {
+        "attrs": {
+            "_FillValue": NaN,
+            "accuracy": " ",
+            "ancillary_variables": "instrument_par",
+            "comment": "PAR has been recalculated from the raw voltage due to the glider miscalculating PAR.",
+            "instrument": "instrument_par",
+            "long_name": "Photosynthetically Active Radiation",
+            "observation_type": "measured",
+            "OOI_data_product_name": "OPTPARW",
+            "OOI_data_level": "L1a",
+            "platform": "platform",
+            "precision": " ",
+            "resolution": " ",
+            "standard_name": "downwelling_photosynthetic_photon_spherical_irradiance_in_sea_water",
+            "units": "umol m-2 s-1",
+            "valid_max": 6000.0,
+            "valid_min": 0.0,
+            "sensor_dark": 0.0109,  # = 10.9 mV -> 0.0109 V
+            "scale_factor": 5.786E-04
+        },
+        "dimension": "time",
+        "nc_var_name": "PAR",
+        "type": "f8"
+    },
+    
+where the name of the entry is changed from "sci_bsipar_par" to "corrected_par"
+and the "sensor_dark" and "scale_factor" entries are added to the "attrs"
+dictionary. The "scale_factor" entry is the Wet value (uE/m^2sec) in the
+Calibration Scale Factor section from the relevant calibration certificate
+for this deployment.  The "sensor_dark" entry is the Sensor Dark value under
+the Sensor Output Voltage section from the relevant calibration certificate
+converted from mVolts to Volts.
+The "comment" entry in "attrs" has also been added, but is not required.

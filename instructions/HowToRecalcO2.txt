@@ -11,7 +11,8 @@ Edit the JSON entry in sensor_defs.json for that deployment to look like:
         "attrs": {
             "_FillValue": NaN,
             "accuracy": " ",
-            "ancillary_variables": " ",
+            "ancillary_variables": "instrument_oxygen",
+            "comment": "Oxygen has been recalculated from raw calphase measurements and calibration coefficients.",
             "instrument": "instrument_oxygen",
             "long_name": "Dissolved Oxygen Concentration",
             "observation_type": "calculated",
@@ -20,7 +21,7 @@ Edit the JSON entry in sensor_defs.json for that deployment to look like:
             "platform": "platform",
             "precision": " ",
             "resolution": " ",
-            "standard_name": "mole_concentration_of_dissolved_molecular_oxygen_in_sea_water",
+            "standard_name": "moles_of_oxygen_per_unit_mass_in_sea_water",
             "valid_max": 500.0,
             "valid_min": 0.0,
             "calculation_type": "MkII",
@@ -58,15 +59,18 @@ power coefficients from the calibration. Note that "FoilCoefA",
 "FoilCoefB", "FoilPolyDegT", and "FoilPolyDegO" are values associated 
 with the foil ID, rather than the specific optode and calibration.
 "ConcCoef" is a value specifically associated with the optode and calibration.
+The "comments" entry under "attrs" has also been added here, but it is not required.
 Everything else stays the same as the original sensor_defs.json entry.
+
 
 B. For recalculation using the SVU calculation:
 Edit the JSON entry in sensor_defs.json for that deployment to look like:
     "corrected_oxygen": {
         "attrs": {
             "_FillValue": NaN,
-            "accuracy": " ",
+            "accuracy": "instrument_oxygen",
             "ancillary_variables": " ",
+            "comment": "Oxygen has been recalculated from raw calphase measurements and calibration coefficients.",
             "instrument": "instrument_oxygen",
             "long_name": "Dissolved Oxygen Concentration",
             "observation_type": "calculated",
@@ -75,7 +79,7 @@ Edit the JSON entry in sensor_defs.json for that deployment to look like:
             "platform": "platform",
             "precision": " ",
             "resolution": " ",
-            "standard_name": "mole_concentration_of_dissolved_molecular_oxygen_in_sea_water",
+            "standard_name": "moles_of_oxygen_per_unit_mass_in_sea_water",
             "valid_max": 500.0,
             "valid_min": 0.0,
             "calculation_type": "SVU",
@@ -104,4 +108,5 @@ and the "cal_coefs" and "calculation_type" entries are added to the
 "ConcCoef" are the Concentration Coefficient values for adjusting a
 calibration.  Both of these are found in the calibration certificate or
 from the optode's configuration.
+The "comments" entry under "attrs" has also been added here, but it is not required.
 Everything else stays the same as the original sensor_defs.json entry.

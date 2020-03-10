@@ -367,7 +367,7 @@ def main(args):
     # Print the list of files created
     sys.stdout.write('Profiles NC files written:\n')
     for source_dba, output_nc_file in zip(source_dba_files, output_nc_files):
-        os.chmod(output_nc_file, 0o664)
+        os.chmod(os.path.join(output_path, output_nc_file), 0o664)
         sys.stdout.write('\t{:s} -> {:s}\n'.format(source_dba, output_nc_file))
 
     return 0
