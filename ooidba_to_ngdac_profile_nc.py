@@ -187,12 +187,12 @@ def main(args):
 
         # check the data file for the required sensors and that science data
         # exists in the file.  True or False returned.  See data_checks.py
-        file_good = check_file_goodness(dba)
-        if not file_good or len(dba.underwater_indices) == 0:
+        file_check = check_file_goodness(dba)
+        if not file_check.file_good or len(dba.underwater_indices) == 0:
             logging.warning(
-                'File {:s} either does not have enough science data or lacks '
-                'the required sensors to produce DAC formatted profiles'.format(
-                    dba.source_file)
+                'File {:s} either does not have enough science data, lacks '
+                'the required sensors, or does not have any dives deep enough '
+                'to produce DAC formatted profiles'.format(dba.source_file)
             )
             continue
 
@@ -200,7 +200,16 @@ def main(args):
 
         # remove any sci bay intialization zeros that may occur (where all
         # science instrument sensors are 0.0)
-        dba = processing.remove_initial_sci_zeros(dba)
+        dba = processing.remove_sci_init_zeros(
+            dba, file_check.avail_sci_data)
+
+        # for the rare instance where an instrument has been removed from
+        # proglets.dat, the variables/sensors associated are removed from the
+        # segment data file.  If it is missing and is in the DATA_CONFIG_LIST in
+        # the gdac configuration file, then we add it back in here as an
+        # array of NaNs.
+        dba = processing.replace_missing_sensors(
+            dba,file_check.avail_sci_data)
 
         # This processing step adds time dependent coordinate variables
         # (designated by the prefix llat [lat, lon, altitude, time]) which are
@@ -279,7 +288,7 @@ def main(args):
         # `*_water_vx/vy` sensors are in the data) get the values and calculate
         # the mean position and time of the segment as the postion and time
         # for the velocity estimation
-        if check_for_dav_sensors(dba) and len(dba.underwater_indices) > 0:
+        if file_check.dav_sensors:
             # get segment mean time, segment mean lat, and segment mean lon
             # (underwater portion only)
             seg_time, seg_lat, seg_lon = processing.get_segment_time_and_pos(

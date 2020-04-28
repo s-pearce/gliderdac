@@ -593,26 +593,34 @@ def all_sci_indices(gldata):
     return sci_indices
 
 
-def remove_initial_sci_zeros(gldata):
+def remove_sci_init_zeros(gldata, available_sensors):
     """Sets values to NaNs where all primary science data sensors equal 0.0 at
     a timestamp, such as might occur when a science bay initializes.
-    Primary science data sensors are defined by DATA_CONFIG_LIST in the
-    configuration file.
+    `available_sensors` is a list of available science data sensors.  Typically
+    these would be returned from calling the `check_file_goodness` function from
+    the `data_checks.py` module which compares available sensors to the
+    DATA_CONFIG_LIST in the configuration file.
 
     :param gldata: GliderData instance
+    :param available_sensors: list of available glider sensors based on the
+        check_file_goodness test in data_checks.py
     :return: The same GliderData instance with any initialization zeros
     changed to NaNs
     """
     zeros_ii = np.array([])
-    for sensor in DATA_CONFIG_LIST:
+    for sensor in available_sensors:
         var = gldata.getdata(sensor)
-        if sensor == DATA_CONFIG_LIST[0]:
+        if sensor == available_sensors[0]:
+            # get the zeros from the first sensor differently to start the
+            # set intersection below
             zeros_ii = np.flatnonzero(var == 0.0)
         else:
             var_zero_ii = np.flatnonzero(var == 0.0)
+            # intersection will find the timestamp where all of the science
+            # sensors are zero
             zeros_ii = np.intersect1d(zeros_ii, var_zero_ii)
     if len(zeros_ii) > 0:
-        gldata.update_data(DATA_CONFIG_LIST, zeros_ii, np.nan)
+        gldata.update_data(available_sensors, zeros_ii, np.nan)
     return gldata
 
 
@@ -780,3 +788,37 @@ def o2_s_and_p_comp(dba, o2sensor='sci_oxy4_oxygen'):
     dba.add_data(oxygen)
 
     return dba
+
+
+def replace_missing_sensors(gldata, available_sensors):
+    """Replaces missing variables/sensors from the gliderdata object so things
+    don't break if a variable is missing.
+
+    This will compare the `available_sensors` input (which should be a subset of
+    DATA_CONFIG_LIST from the gdac configuration file) with DATA_CONFIG_LIST,
+    and if any sensors are missing, it will create it as an array of NaNs,
+    just so the code does not break.  This is just considered a patch until
+    better code exists.
+
+    :param gldata: GliderData instance
+    :param available_sensors: a list of the sensors available as a subset of
+    the DATA_CONFIG_LIST from the gdac configuration file
+    :return: The GliderData instance input with the new sensor added
+    """
+    for sensor in DATA_CONFIG_LIST:
+        if sensor not in available_sensors:
+            new_sensor = {
+                "sensor_name": sensor,
+                "data": np.full(len(gldata), np.nan),
+                "attrs": {
+                    "units": "N/A",
+                    "bytes": 4,
+                    "comment": (
+                        "Data variable {:s} is absent from this data "
+                        "file and is all _FillValue values".format(
+                            sensor)),
+                    "source_sensor": sensor,
+                    "long_name": sensor}
+            }
+            gldata.add_data(new_sensor)
+    return gldata
