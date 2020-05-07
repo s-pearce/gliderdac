@@ -276,7 +276,7 @@ def pitch_and_roll(dba, fill='fwd fill'):
     roll = dba['m_roll']
     roll['sensor_name'] = 'roll'
     roll['attrs']['units'] = 'degrees'
-    roll['attrs']['comments'] = (
+    roll['attrs']['comment'] = (
         'm_roll converted to degrees and forward filled')
     roll['data'] = fwd_fill(np.degrees(roll['data']))
 
