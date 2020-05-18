@@ -634,8 +634,18 @@ def recalc_chlor(dba, dark_offset, scale_factor):
     """
     if 'sci_flbbcd_chlor_sig' not in dba.sensor_names:
         logger.warning(
-            "sci_flbbcd_chlor_sig is not present to recalculate chlorophyll")
-        return None
+            "sci_flbbcd_chlor_sig is not present to recalculate chlorophyll. "
+            "Filling with NaNs instead.")
+        # This needs to return a variable called `corrected_chlor` or else the
+        # code will not continue with the rest of the potentially good data, so
+        # this should return `corrected_chlor` full of nans since it can not be
+        # corrected
+        nanchlor = deepcopy(dba['sci_flbbcd_chlor_units'])
+        nanchlor['sensor_name'] = "corrected_chlor"
+        nanchlor['data'] = np.full(len(dba), np.nan)
+        dba.add_data(nanchlor)
+        return _add_nan_variable(
+                dba, "corrected_chlor", "sci_flbbcd_chlor_units")
     chlor_sig = dba.getdata('sci_flbbcd_chlor_sig')
     chlor_units = deepcopy(dba['sci_flbbcd_chlor_units'])
     new_chlor = scale_factor * (chlor_sig - dark_offset)
@@ -661,8 +671,13 @@ def recalc_par(dba, sensor_dark, scale_factor):
     """
     if 'sci_bsipar_sensor_volts' not in dba.sensor_names:
         logger.warning(
-            "sci_bsipar_sensor_volts is not present to recalculate PAR")
-        return None
+            "sci_bsipar_sensor_volts is not present to recalculate PAR. "
+            "Filling with NaNs instead.")
+        # This needs to return a variable called `corrected_par` or else the
+        # code will not continue with the rest of the potentially good data, so
+        # this should return `corrected_par` full of nans since it can not be
+        # corrected
+        return _add_nan_variable(dba, "corrected_par", "sci_bsipar_par")
     par_volts = dba.getdata('sci_bsipar_sensor_volts')
     # remove the initialization where sensor volts == 0.0
     par_volts[par_volts == 0.0] = np.nan
@@ -691,8 +706,13 @@ def check_and_recalc_o2(dba, calc_type, cal_dict):
     """
     if 'sci_oxy4_calphase' not in dba.sensor_names:
         logger.warning(
-            "sci_oxy4_calphase is not present to recalculate oxygen")
-        return None
+            "sci_oxy4_calphase is not present to recalculate oxygen. Filling "
+            "with NaNs instead.")
+        # This needs to return a variable called `corrected_oxygen` or else the
+        # code will not continue with the rest of the potentially good data, so
+        # this should return `corrected_oxygen` full of nans since it can not be
+        # corrected
+        return _add_nan_variable(dba, 'corrected_oxygen', 'sci_oxy4_oxygen')
     calphase = dba.getdata('sci_oxy4_calphase')
     oxytemp = dba.getdata('sci_oxy4_temp')
     bads = calphase == 0.0
@@ -711,9 +731,10 @@ def check_and_recalc_o2(dba, calc_type, cal_dict):
     else:
         logger.warning(
             "No oxygen calculation type configured for re-calculation.  Add "
-            "'calculation_type': 'SVU' or 'MkII' to the 'corrected_oxy' "
+            "'calculation_type': 'SVU' or 'MkII' to the 'corrected_oxygen' "
             "section in sensor_defs.json")
-        return None
+        dba = _add_nan_variable(dba, "corrected_oxygen", "sci_oxy4_oxygen")
+        return dba
 
     oxy_units = deepcopy(dba['sci_oxy4_oxygen'])
     oxy_units['data'] = new_oxy
@@ -822,3 +843,23 @@ def replace_missing_sensors(gldata, available_sensors):
             }
             gldata.add_data(new_sensor)
     return gldata
+
+
+def _add_nan_variable(gdata, variable_name, derived_variable):
+    """ Adds a variable named `variable_name` to the glider data object
+    `gdata` that is filled with all NaNs using the attributes from variable /
+    sensor `derived_variable`
+
+    :param gdata: GliderData instance to add the NaN variable to.
+    :param variable_name: string
+        The name of the new NaN-filled variable to add.
+    :param derived_variable: string
+        The name of the variable to use to derive the attributes from such as
+        units, long_name, and bytes (that indicates data type).
+    :return: gdata: GliderData instance with new NaN-filled variable added
+    """
+    nanvar = deepcopy(gdata[derived_variable])
+    nanvar['sensor_name'] = variable_name
+    nanvar['data'] = np.full(len(gdata), np.nan)
+    gdata.add_data(nanvar)
+    return gdata
