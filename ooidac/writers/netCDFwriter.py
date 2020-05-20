@@ -18,7 +18,7 @@ from ooidac.constants import CF_VARIABLE_ATTRIBUTES
 class NetCDFWriter(object):
 
     def __init__(
-            self, config_path, output_path, profile_id=1,
+            self, config_path, output_path, starting_profile_id=1,
             nc_format='NETCDF4_CLASSIC', comp_level=1, clobber=False):
         """Create instance of the TrajectoryNetCDFWriter:
             1. Set and validate default configuration paths
@@ -68,7 +68,11 @@ class NetCDFWriter(object):
 
         self.output_path = output_path
 
-        self._profile_id = profile_id
+        self._starting_profile_id = starting_profile_id
+        if starting_profile_id == 0:
+            self._profile_id = None
+        else:
+            self._profile_id = starting_profile_id
 
         # Deployment specific configuration path
         self._deployment_config_path = os.path.join(
@@ -535,7 +539,8 @@ class NetCDFWriter(object):
 
         self.set_scalar('profile_id', self._profile_id)
 
-        self._profile_id += 1
+        # This step is now done in the `write_profile` method
+        # self._profile_id += 1
 
     def _update_profile_vars(self):
         """ Internal function that updates all profile variables
@@ -1384,7 +1389,7 @@ class NetCDFWriter(object):
             netcdf in addition to the GliderData instance
         :return:
         """
-        # ToDo: reduce profile to science data only
+        # Done: reduce profile to science data only is done outside of function
         profile_times = profile.getdata('llat_time')
         # Calculate and convert profile mean time to a datetime
         prof_start_time = float(profile_times[0])
@@ -1396,8 +1401,9 @@ class NetCDFWriter(object):
         # If start profile id is set to 0, on the command line,
         # use the mean_profile_epoch as the profile_id since it will be
         # unique to this profile and deployment
-        # if args.start_profile_id < 1:
-        #     ncw.profile_id = int(mean_profile_epoch)
+        if self._starting_profile_id < 1:
+            self.profile_id = int(prof_start_time)
+
         pro_mean_dt = datetime.datetime.utcfromtimestamp(mean_profile_epoch)
         prof_start_dt = datetime.datetime.utcfromtimestamp(prof_start_time)
 
@@ -1424,7 +1430,7 @@ class NetCDFWriter(object):
             dir=self.tmp_dir, suffix='.nc',
             prefix=os.path.basename(profile_filename)
         )
-        os.close(tmp_fid)
+        os.close(tmp_fid)  # comment why this is necessary?
 
         out_nc_file = os.path.join(self.output_path, '{:s}.nc'.format(
             profile_filename))
@@ -1517,6 +1523,11 @@ class NetCDFWriter(object):
                         tmp_nc, e)
                 )
                 return
+
+        # If all is sucessful, and profile_id is sequential, increment
+        if self._starting_profile_id > 0:
+            self.profile_id += 1
+
         return out_nc_file
         # output_nc_files.append(out_nc_file)
 

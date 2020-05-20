@@ -105,13 +105,13 @@ def main(args):
     # get the next profile id if this dataset has been run before.
     # ToDo: for now this works for realtime, but it should be changed to
     #  exclude cases where you might re-run a recovered dataset and clobber.
-    if status['next_profile_id']:
+    if status['next_profile_id'] and start_profile_id > 0:
         start_profile_id = status['next_profile_id']
 
     # Create the Trajectory NetCDF writer
     ncw = NetCDFWriter(
         config_path, output_path, comp_level=comp_level,
-        nc_format=nc_format, profile_id=start_profile_id,
+        nc_format=nc_format, starting_profile_id=start_profile_id,
         clobber=clobber)
     # Make sure we have llat_* sensors defined in ncw.nc_sensor_defs
     ctd_valid = validate_sensors(ncw.nc_sensor_defs, ctd_sensors)
@@ -367,11 +367,12 @@ def main(args):
 
     # write the processed files and last profile id to status.json
     logging.debug('Writing run status to status.json')
-    status['next_profile_id'] = ncw.profile_id
+    if start_profile_id > 0:
+        status['next_profile_id'] = ncw.profile_id
     status['files_processed'].extend(processed_dbas)
     status['profiles_created'].extend(output_nc_files)
     with open(status_path, 'w') as fid:
-        json.dump(status, fid)
+        json.dump(status, fid, indent=2)
 
     # Print the list of files created
     sys.stdout.write('Profiles NC files written:\n')
@@ -424,7 +425,7 @@ if __name__ == '__main__':
                                 'id. If not specified or <1 the mean profile '
                                 'unix timestamp is used'),
                             type=int,
-                            default=1)
+                            default=0)
 
     arg_parser.add_argument('-o', '--output_path',
                             help=(
