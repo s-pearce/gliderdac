@@ -11,6 +11,7 @@ from ooidac.utilities import fwd_fill
 from ooidac.ctd import calculate_practical_salinity, calculate_density
 from ooidac.processing_dir.fluorometer import flo_bback_total
 from ooidac.processing_dir.oxygen_calculation import calc_o2, do2_SVU
+from configuration import SCITIMESENSOR
 from ooidac.constants import (
     SLOCUM_TIMESTAMP_SENSORS,
     SLOCUM_PRESSURE_SENSORS,
@@ -91,6 +92,8 @@ def create_llat_sensors(
     return dba
 
 
+# ToDo: parts or all of this would be better suited in a configuration
+#  class/module
 def select_time_sensor(dba, timesensor=None):
     # Figure out which time sensor to select
     if timesensor:
@@ -120,6 +123,8 @@ def select_time_sensor(dba, timesensor=None):
     return time_sensor
 
 
+# ToDo: parts or all of this would be better suited in a configuration class
+#  or module
 def select_pressure_sensor(dba, pressuresensor=None):
     """Returns selected pressure sensor name and pressure array in decibars"""
 
@@ -159,6 +164,8 @@ def select_pressure_sensor(dba, pressuresensor=None):
     return pressure_sensor
 
 
+# ToDo: Parts or all of this would be better suited to a configuration class
+#  or module
 def select_depth_sensor(dba, depthsensor=None):
     # List of available dba sensors
     dba_sensors = dba.sensor_names
@@ -756,7 +763,7 @@ def o2_s_and_p_comp(dba, o2sensor='sci_oxy4_oxygen'):
 
     oxygen = dba[o2sensor]
     oxy = oxygen['data'].copy()
-    timestamps = dba.getdata('sci_m_present_time')
+    timestamps = dba.getdata(SCITIMESENSOR)
     sp = dba.getdata('salinity')
     p = dba.getdata('llat_pressure')
     t = dba.getdata('sci_water_temp')

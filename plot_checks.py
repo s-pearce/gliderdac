@@ -146,7 +146,8 @@ def plot_multiprofiles_and_dba(nc_file_list, plot_dir=None):
             source_file = dba.file_metadata['source_file']
             logging.debug("plotting segment {:s}".format(source_file))
             dba_ts = pd.to_datetime(dba.ts * 1e9)
-            dba_depth = dba.depth
+            # dba_depth = dba.depth
+            dba_depth = dba.getdata('m_depth')
             dba_press = dba.getdata('sci_water_pressure') * 10.
             plot_dba(dba_ts, dba_depth)
             plt.plot(dba_ts, dba_press, 'gray',

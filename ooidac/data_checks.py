@@ -4,6 +4,7 @@ import numpy as np
 
 from configuration import DATA_CONFIG_LIST, REQUIRED_SENSORS
 from configuration import MIN_DATA_VALS, MIN_DIVE_DEPTH
+from configuration import DAV_SENSORS, DEPTH_SENSOR
 from ooidac.constants import SLOCUM_SALINITY_SENSORS
 
 logger = logging.getLogger(os.path.basename(__name__))
@@ -44,13 +45,13 @@ def check_required_sensors(gldata):
 
 def check_for_dav_sensors(gldata):
     sensor_names = gldata.sensor_names
-    dav_sensors = [
-        ('m_final_water_vx', 'm_final_water_vy'),
-        ('m_water_vx', 'm_water_vy'),
-        ('m_initial_water_vx', 'm_initial_water_vy')
-    ]
+    # dav_sensors = [  # replaced by explicit strings in configuration.py
+    #     ('m_final_water_vx', 'm_final_water_vy'),
+    #     ('m_water_vx', 'm_water_vy'),
+    #     ('m_initial_water_vx', 'm_initial_water_vy')
+    # ]
     check = []
-    for vx, vy in dav_sensors:
+    for vx, vy in DAV_SENSORS:
         if vx in sensor_names and vy in sensor_names:
             check.append((vx, vy))
     if len(check) > 0:
@@ -62,7 +63,7 @@ def check_for_dav_sensors(gldata):
 
 def check_if_dive(gldata):
     diving_segment = False
-    depth = gldata.getdata('m_depth')
+    depth = gldata.getdata(DEPTH_SENSOR)
     max_depth = np.nanmax(depth)
     if max_depth > MIN_DIVE_DEPTH:
         diving_segment = True
@@ -89,11 +90,13 @@ def sci_data_available(gldata):
                 # config
                 sci_sensors.append(sensor)
             else:
-                logger.warning(
-                    'Science data {:s} has less than 5 values in file '
-                    '{:s}'.format(sensor, gldata.source_file)
+                logger.debug(
+                    'Science data {:s} has less than {:d} values in file '
+                    '{:s}'.format(sensor, MIN_DATA_VALS, gldata.source_file)
                 )
         else:
+            # ToDo: Would be good to eventually get the acutal configuration
+            #       file path here for the eventual multiple configuration files
             logger.warning(
                 'Science Sensor {:s} not found in data file {:s}, but is '
                 'found in configuration.py'.format(sensor, gldata.source_file)
@@ -101,6 +104,7 @@ def sci_data_available(gldata):
     return sci_sensors
 
 
+# The function below is deprecated by `check_required_sensors` above
 # def check_ctd_sensors(gldata):
 #     ctd_sensors_exist = False
 #     ctd_sensors = np.intersect1d(

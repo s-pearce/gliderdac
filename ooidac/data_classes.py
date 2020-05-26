@@ -199,7 +199,11 @@ class GliderData(object):
             row_inds = slice(None)
 
         data = self._data[row_inds, col_inds]
-        return GliderData(self.file_metadata, sensor_names, sensor_defs, data)
+        depth = self.depth[row_inds]
+        new_gdata_slice = GliderData(
+            self.file_metadata, sensor_names, sensor_defs, data)
+        new_gdata_slice.set_depth(depth=depth)
+        return new_gdata_slice
 
     def set_ts(self, timesensor=None):
         """Set the .ts timestamp attribute with the desired time sensor.
@@ -218,15 +222,26 @@ class GliderData(object):
             self.ts = None
             return
 
-    def set_depth(self, depthsensor=None, interpolate=True):
+    def set_depth(self, depthsensor=None, interpolate=True, depth=None):
         """Set the .depth attribute with the desired depth sensor.
         Default tries `m_depth`
+
+        In case the GliderData instance is a slice from a larger GliderData
+        instance, there is a chance that the slice selected has too few data
+        points from the larger instance.  So in the case of a slice,
+        this method has the parameter `depth` where a slice of a larger
+        interpolated depth can be passed.
 
         :param depthsensor: Optional Str, name of depth sensor to use.
             default is `m_depth`
         :param interpolate: Optional Bool, interpolate the missing depth values
             default is True.
+        :param depth: Optional Numpy array, array of depth values to use
+            default is None
         """
+        if depth is not None:
+            self.depth = depth
+            return
         if depthsensor is None:
             depthsensor = 'm_depth'
         try:

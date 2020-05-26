@@ -3,20 +3,42 @@
 # list the science variables/sensor names from the raw glider data to process.
 # These should match with the netCDF variables in sensor_defs.json
 
+# ToDo: incorporate the constants from ooidac/constants.py into here and then
+#  setup a system where a required sensor is either a single string or an
+#  order of preference list of strings where it will look for the first
+#  preference in the data and if not found, go down the list until one is
+#  found or if none, then fail or continue.
+
+# ToDo: rename all *SENSOR variables to *VARNAME or *VARIABLE etc. for a more
+#  generic approach.  Only Slocum calls variables "sensors" EVERYone else
+#  calls them "variables"
+
 TIMESENSOR = 'm_present_time'
 SCITIMESENSOR = 'sci_m_present_time'
 CONDUCTIVITY_SENSOR = 'sci_water_cond'
 TEMPERATURE_SENSOR = 'sci_water_temp'
+PRESSURE_SENSOR = "sci_water_pressure"
+DEPTH_SENSOR = 'm_depth'
+LAT_SENSOR = "m_gps_lat"
+LON_SENSOR = "m_gps_lon"
 
 REQUIRED_SENSORS = [
     SCITIMESENSOR, TIMESENSOR,
     CONDUCTIVITY_SENSOR, TEMPERATURE_SENSOR,
-    'sci_water_pressure',
-    'm_gps_lat', 'm_gps_lon',
+    PRESSURE_SENSOR,
+    LAT_SENSOR, LON_SENSOR,
 ]
 
+# The Depth Averaged Velocity (DAV) sensors/variables
+DAV_SENSORS = [
+    ('m_final_water_vx', 'm_final_water_vy'),  # first preference
+    ('m_initial_water_vx', 'm_initial_water_vy'),  # second preference
+    ('m_water_vx', 'm_water_vy')  # third preference
+]
+
+# This should be the list of sensors/variables that provide scientific data
 DATA_CONFIG_LIST = [
-    TEMPERATURE_SENSOR, CONDUCTIVITY_SENSOR, 'sci_water_pressure',
+    TEMPERATURE_SENSOR, CONDUCTIVITY_SENSOR, PRESSURE_SENSOR,
     'sci_flbbcd_chlor_units', 'sci_flbbcd_cdom_units', 'sci_flbbcd_bb_units',
     'sci_oxy4_oxygen', 'sci_oxy4_saturation', 'sci_bsipar_par'
 ]

@@ -172,7 +172,7 @@ def filter_small_data_depth_ratio(
     :return:
     """
     remove_profile = False
-    depth = profile_data.getdata('m_depth')
+    depth = profile_data.depth
     total_profile_depth = np.nanmax(depth) - np.nanmin(depth)
     pres = profile_data.getdata('llat_pressure')
 
