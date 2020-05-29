@@ -142,21 +142,30 @@ def main(args):
 
     # Pre-processing
     # ToDo: clean this up
+    corrections = {}
     if 'corrected_oxygen' in ncw.config_sensor_defs:
-        calc_type = ncw.config_sensor_defs['corrected_oxygen']['attrs'][
-            'calculation_type']
-        cal_dict = ncw.config_sensor_defs['corrected_oxygen']['attrs'].pop(
-            'cal_coefs')
+        corrections['corrected_oxygen'] = {
+            'calculation_type': ncw.config_sensor_defs['corrected_oxygen'][
+                'attrs']['calculation_type'],
+            'cal_coefs': ncw.config_sensor_defs['corrected_oxygen'][
+                'attrs'].pop('cal_coefs')
+        }
+
     if 'corrected_chlor' in ncw.config_sensor_defs:
-        darkoffset = ncw.config_sensor_defs['corrected_chlor']['attrs'][
-            'dark_offset']
-        sf = ncw.config_sensor_defs['corrected_chlor']['attrs'][
-            'scale_factor']
+        corrections['corrected_chlor'] = {
+            'dark_offset': ncw.config_sensor_defs['corrected_chlor'][
+                'attrs'].pop('dark_offset'),
+            'scale_factor': ncw.config_sensor_defs['corrected_chlor'][
+                'attrs'].pop('scale_factor')
+        }
+
     if 'corrected_par' in ncw.config_sensor_defs:
-        sensor_dark = ncw.config_sensor_defs['corrected_par']['attrs'][
-            'sensor_dark']
-        sf = ncw.config_sensor_defs['corrected_par']['attrs'][
-            'scale_factor']
+        corrections['corrected_par'] = {
+            'sensor_dark': ncw.config_sensor_defs['corrected_par'][
+                'attrs'].pop('sensor_dark'),
+            'scale_factor': ncw.config_sensor_defs['corrected_par'][
+                'attrs'].pop('scale_factor')
+        }
 
     for dba_file in dba_files:
         # change to non-indented log format (see above)
@@ -243,9 +252,11 @@ def main(args):
         # Process `sci_oxy4_oxygen` to OOI L2 compensated for salinity and
         # pressure and converted to umol/kg.
         if 'corrected_oxygen' in ncw.config_sensor_defs:
-            calc_type = ncw.config_sensor_defs['corrected_oxygen']['attrs'][
-                'calculation_type']
-            dba = processing.check_and_recalc_o2(dba, calc_type, cal_dict)
+            dba = processing.check_and_recalc_o2(
+                dba,
+                calc_type=corrections['corrected_oxygen']['calculation_type'],
+                cal_dict=corrections['corrected_oxygen']['cal_coefs']
+            )
             dba = processing.o2_s_and_p_comp(dba, 'corrected_oxygen')
         elif 'sci_oxy4_oxygen' in dba.sensor_names:
             dba = processing.o2_s_and_p_comp(dba)
@@ -254,23 +265,23 @@ def main(args):
 
         # Re_calculate chlorophyll
         if 'corrected_chlor' in ncw.config_sensor_defs:
-            darkoffset = ncw.config_sensor_defs['corrected_chlor']['attrs'][
-                'dark_offset']
-            sf = ncw.config_sensor_defs['corrected_chlor']['attrs'][
-                'scale_factor']
             dba = processing.recalc_chlor(
-                dba, dark_offset=darkoffset, scale_factor=sf)
+                dba, **corrections['corrected_chlor']
+                # dark_offset=corrections['corrected_chlor']['dark_offset'],
+                # scale_factor=corrections['corrected_chlor']['scale_factor']
+            )
             if dba is None:
                 continue
 
         # Re_calculate PAR
         if 'corrected_par' in ncw.config_sensor_defs:
-            sensor_dark = ncw.config_sensor_defs['corrected_par']['attrs'][
-                'sensor_dark']
-            sf = ncw.config_sensor_defs['corrected_par']['attrs'][
-                'scale_factor']
+            # par_sensor_dark = corrections['corrected_par']['sensor_dark']
+            # par_sf = corrections['corrected_par']['scale_factor']
             dba = processing.recalc_par(
-                dba, sensor_dark=sensor_dark, scale_factor=sf)
+                dba, **corrections['corrected_par']
+                # sensor_dark=par_sensor_dark,
+                # scale_factor=par_sf
+            )
             if dba is None:
                 continue
 
