@@ -1,6 +1,6 @@
 import os
 import logging
-import json
+#import json
 import datetime
 import tempfile
 import shutil
@@ -13,6 +13,7 @@ from dateutil import parser
 from ooidac.constants import NETCDF_FORMATS, NC_FILL_VALUES
 from ooidac.constants import REQUIRED_SENSOR_DEFS_KEYS
 from ooidac.constants import CF_VARIABLE_ATTRIBUTES
+import ooidac.readers.json_config as json_config
 
 
 class NetCDFWriter(object):
@@ -1213,8 +1214,10 @@ class NetCDFWriter(object):
         )
 
         try:
-            with open(self._sensor_defs_config_path, 'r') as fid:
-                self._config_sensor_defs = json.load(fid)
+            # with open(self._sensor_defs_config_path, 'r') as fid:
+            #     self._config_sensor_defs = json.load(fid)
+            self._config_sensor_defs = json_config.load(
+                self._sensor_defs_config_path)
         except ValueError as e:
             self._logger.error(
                 'Error parsing deployment-specific sensor definitions: '
@@ -1333,8 +1336,9 @@ class NetCDFWriter(object):
                 self._deployment_config_path)
         )
         try:
-            with open(self._deployment_config_path, 'r') as fid:
-                deployment_configs = json.load(fid)
+            # with open(self._deployment_config_path, 'r') as fid:
+            #     deployment_configs = json.load(fid)
+            deployment_configs = json_config.load(self._deployment_config_path)
         except ValueError as e:
             self._logger.error(
                 'Error loading {:s}: {:}'.format(
@@ -1347,8 +1351,9 @@ class NetCDFWriter(object):
                 self._global_attributes_path)
         )
         try:
-            with open(self._global_attributes_path, 'r') as fid:
-                global_atts = json.load(fid)
+            # with open(self._global_attributes_path, 'r') as fid:
+            #     global_atts = json.load(fid)
+            global_atts = json_config.load(self._global_attributes_path)
 
         except ValueError as e:
             self._logger.error(
@@ -1362,8 +1367,9 @@ class NetCDFWriter(object):
                 self._instruments_config_path)
         )
         try:
-            with open(self._instruments_config_path, 'r') as fid:
-                instrument_configs = json.load(fid)
+            # with open(self._instruments_config_path, 'r') as fid:
+            #     instrument_configs = json.load(fid)
+            instrument_configs = json_config.load(self._instruments_config_path)
         except ValueError as e:
             self._logger.error(
                 'Error loading {:s}: {:}'.format(
