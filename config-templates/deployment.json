@@ -1,0 +1,47 @@
+// deployments.json captures metadata specifically about the
+//     deployment to be processed.
+//
+// gliderdac JSON configurations allow comments in the file
+// (no inline comments). Any leading whitespace is ignored.
+// pay attention to completing JSON syntax though.
+{
+    // <glider name> from the autoexec.mi
+    "glider": "<glider_name>",
+    // Any attributes under the "global_attributes" section here are
+    //   added to the NetCDF global attributes section as deployment
+    //   specific attributes so that only this file is required to be
+    //   edited and not global_attributes.json every time.
+    //   Most are not required, but will be added as extra attributes
+    "global_attributes": {
+        "comment": "<comments about the deployment>",
+        "deployment_number": "<deployment number or other id info>",
+        // wmo_id is required
+        "wmo_id": "<wmo_id>",
+        // mode is required and can only be 'rt' or 'delayed' for
+        // real-time and recovered data respectively.
+        "mode": "delayed | rt"
+    },
+    // This platform section become `platform` variable
+    // attributes that are relevant to NCEI for archival
+    "platform": {
+        "comment": "<any platform specific comments>",
+        // id is required and must be the ID found in NCEI look up
+        // tables, which is the glider name from autoexec.mi unless
+        // otherwise arranged with NCEI.
+        "id": "<glider name>",
+        // type is required to be "platform"
+        "type": "platform",
+        // wmo_id is required a second time.  Hopefully this changes
+        // in a future revision
+        "wmo_id": "<wmo_id>"
+    },
+    // The `trajectory_` fields are required for the NGDAC and should
+    // be the deployment starting datetime (usually the launch in
+    // water time) as the ISO full datetime standard in UTC ([Z]ulu)
+    // yyyy-mm-ddTHH:MM:SSZ
+    // and the name is the DAC required deployment/trajectory name
+    // A concatenation of the glider name and the starting datetime:
+    // <glider_name>-yyyymmddTHHMM
+    "trajectory_datetime": "yyyy-mm-ddTHH:MM:SSZ",
+    "trajectory_name": "ce_386-20191121T1807"
+}

@@ -26,7 +26,7 @@ def load(path):
         lines = fid.readlines()
     comment_lines = []
     for line in lines:
-        if line.strip().startswith("#"):
+        if line.strip().startswith("//"):
             comment_lines.append(line)
 
     for comment in comment_lines:

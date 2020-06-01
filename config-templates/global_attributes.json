@@ -1,0 +1,49 @@
+// global_attributes.json captures metadata to be placed in the 
+//     global attributes of the netCDF files. This one is meant to
+//     not necessarily change per deployment processed, but for
+//     a project.  Any deployment specific global attributes to add
+//     such as deployment launch time, should be added to
+//     deployments.json which should be edited for every deployment.
+//
+// This file has example information in it left from the OOI
+//     Endurance Array as a specific example rather than fill in the
+//     blanks type example. However, see the IOOS Glider DAC
+//     instructions and the CF and ACDD convention pages for
+//     more information about Global Attributes.
+//
+// gliderdac JSON configurations allow comments in the file
+// (no inline comments). Any leading whitespace is ignored.
+// pay attention to completing JSON syntax though.
+{
+    "Conventions": "CF-1.6, COARDS, ACDD-1.3",
+    "Metadata_Conventions": "CF-1.6, Unidata Dataset Discovery v1.0",
+    "acknowledgment": "Funding provided by the National Science Foundation. Glider deployed by OOI Coastal Endurance personnel at Oregon State University",
+    "cdm_data_type": "Trajectory", 
+    "contributor_name": "Edward Dever, Jonathan Fram, Stuart Pearce, Christopher Wingard", 
+    "contributor_role": "Endurance Array Principal Investigator/Project Scientist, Endurance Array Project Manager, Endurance Array Glider Lead, Endurance Array Data Management", 
+    "creator_email": "spearce@ceoas.oregonstate.edu", 
+    "creator_name": "Stuart Pearce", 
+    "creator_institution": "OOI Coastal Endurance",
+    "creator_url": "http://ceoas.oregonstate.edu/ooi/",
+    "featureType": "trajectory",
+    "format_version": "IOOS_Glider_NetCDF_v2.0.nc",
+    "institution": "OOI Coastal Endurance", 
+    "keywords": "Oceans > Ocean Pressure > Water Pressure, Oceans > Ocean Temperature > Water Temperature, Oceans > Salinity/Density > Conductivity, Oceans > Salinity/Density > Density, Oceans > Salinity/Density > Salinity, Oceans > Ocean Chemistry > Chlorophyll, Oceans > Ocean Chemistry > Oxygen, Oceans > Ocean Chemistry > Organic Matter, Oceans > Ocean Optics > Scattering, Oceans > Ocean Optics > Photosynthetically Active Radiation", 
+    "keywords_vocabulary": "GCMD Science Keywords", 
+    "license": "All OOI data including data from OOI core sensors and all proposed sensors added\nby Principal Investigators, will be rapidly disseminated, open, and freely\navailable (within constraints of national security). Rapidly disseminated\nimplies that data will be made available as soon as technically feasible, but\ngenerally in near real-time, with latencies as small as seconds for the cabled\ncomponents. In limited cases, individual PIs who have developed a data source\nthat becomes part of the OOI network may request exclusive rights to the data\nfor a period of no more than one year from the onset of the data stream. The\nreliability, quality and completeness of data obtained through OOI are intended\nto be used in an education or research context. It is assumed that outages and\nerrors can occur and are dealt with by the users of the data. These data and\nsoftware are not for use in operational or decision-making settings. The OOI\nprogram makes reasonable efforts to ensure that the data provided are accurate.\nHowever, there may be no Quality Control (QC) performed on data acquired and\nprovided through the OOI program, and there may be no Quality Assurance (QA)\nprovided on information on those data sets. If QC/QA is performed, it is\ndescribed in the metadata.\n\nThe OOI program both produces and, through collaborations within the geosciences\ncommunity, gains access to data sets which may be redistributed either directly\nor indirectly at no cost and with no restrictions.\n\nWith regard to data distribution, all users must comply with any applicable U.S.\nexport laws and regulations. The OOI Program is not responsible for the use of\nthe data it provides. The full data policy is available at\nhttp://oceanobservatories.org/usage-policy.", 
+    "metadata_link": "http://oceanobservatories.org/site/ce05moas/",
+    "naming_authority": "org.oceanobservatories",
+    "platform_type": "Slocum Glider",
+    "processing_level": "Raw Slocum Glider data. A few L2a processed variables. No QC performed",
+    "program": "Ocean Observatories Initiative", 
+    "project": "Coastal Endurance Array", 
+    "publisher_email": "help@oceanobservatories.org", 
+    "publisher_name": "Ocean Observatories Initiative", 
+    "publisher_url": "http://oceanobservatories.org",
+    "references": "http://oceanobservatories.org/",
+    // sea_name should be valid name be from NCEI sea_name tables
+    "sea_name": "Northeast Pacific Ocean",
+    "source": "Observational data from a profiling glider", 
+    "standard_name_vocabulary": "CF Standard Name Table v68", 
+    "summary": "The Endurance Array is a multi-scaled array utilizing fixed and mobile assets to\nobserve cross-shelf and along-shelf variability in the coastal upwelling region\noff the Oregon and Washington coasts. The array also provides an extensive\nspatial footprint that encompasses a prototypical eastern boundary current\nregime and connectivity with the Cabled Array. OOI Coastal Glider deployments\nbridge the distances between the fixed sites of the Coastal Endurance Array and\nallow for adaptive sampling of the coastal waters of Washington and Oregon.\nThis dataset contains raw Slocum glider data parsed directly from the native\nglider file format. No corrections or other quality control algorithms have been\napplied."
+}

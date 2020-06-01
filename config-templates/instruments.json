@@ -1,0 +1,98 @@
+// instruments.json captures metadata specifically about the
+//     the science instruments for the deployment to be processed.
+//
+// For every instrument type other than the required instrument_ctd
+//     just add a new JSON dictionary to the main list following
+//     a similar style to the CTD. I have left in my additional
+//     instruments as an example, but they should be removed if they
+//     are not present on your glider. At least at the time of
+//     writing this, the Glider DAC did not have specific names for
+//     the other instrument metadata variables, so I chose the names
+//     below (e.g. instrument_flbbcd). I think you can choose your
+//     own too, but make sure in any data variables that come from
+//     the instrument, you include the "instrument_" name from here
+//     in the "ancillary_variables" attribute for that variable in
+//     the sensor_defs.json file.
+//     For example for chlorophyll data which comes from the ECO 
+//     triplet instrument (FLBBCD) you would add
+//     "instrument_flbbcd" to the "ancillary_variables" attribute 
+//     in the chlorophyll variable in sensor_defs.json
+//
+// None of this information has a specific format, it is entirely up
+//     the user how to record it for instrument metadata
+//
+// gliderdac JSON configurations allow comments in the file
+// (no inline comments). Any leading whitespace is ignored.
+// pay attention to completing JSON syntax though.
+[
+    {
+        "nc_var_name": "instrument_ctd",
+        "type": "i4",
+        "attrs": {
+            "serial_number": "<serial_number>",
+            "make_model": "Sea-Bird GPCTD",
+            "comment": "pumped CTD",
+            "long_name": "Seabird Glider Payload CTD",
+            "calibration_date": "<calibration date>",
+            "factory_calibrated": "<calibration date>",
+            "calibration_report": "<example for an attribute>",
+            "TWR_customer_service_report": "<example included only>",
+            // not sure why, but I think these are required.
+            "type": "platform",
+            "platform": "platform"
+        }
+    },
+    {
+        "nc_var_name": "instrument_flbbcd",
+        "type": "i4",
+        "attrs": {
+            "serial_number": "4470",
+            "make_model": "WET Labs ECO Puck FLBBCD",
+            "OOI_series": "FLORT-M",
+            "long_name": "Optical Backscatter, Chlorophyll and CDOM Fluorescence Sensor",
+            "calibration_date": "2019-07-24T00:00:00Z",
+            "factory_calibrated": "2019-07-24T00:00:00Z",
+            "calibration_report": "FLORT-M_FLBBCDSLC_SN_4470_Calibration_2019-07-24.pdf",
+            "calibration_directory_url": "https://alfresco.oceanobservatories.org/alfresco/n/browse/workspace/SpacesStore/d2c7e6af-b362-44cd-be27-e2c97c2544e0",
+            "TWR_customer_service_report": "5211",
+            "type": "instrument",
+            "platform": "platform"
+        }
+    },
+    {
+        "nc_var_name": "instrument_par",
+        "type": "i4",
+        "attrs": {
+            "serial_number": "50239",
+            "make_model": "Biospherical QSP-2155",
+            "OOI_series": "PARAD-M",
+            "long_name": "Photosynthetically Active Radiation (PAR) Sensor",
+            "calibration_date": "2019-08-08T00:00:00Z",
+            "factory_calibrated": "2019-08-08T00:00:00Z",
+            "calibration_report": "PARAD-M_QSP2155_SN_50239_Calibration_2019-08-08.pdf",
+            "calibration_directory_url": "https://alfresco.oceanobservatories.org/alfresco/n/browse/workspace/SpacesStore/384a5bc3-33b0-4f67-8937-84f293976044",
+            "TWR_customer_service_report": "5211",
+            "type": "instrument",
+            "platform": "platform"
+        }
+    },
+    {
+        "nc_var_name": "instrument_oxygen",
+        "type": "i4",
+        "attrs": {
+            "serial_number": "178",
+            "make_model": "Aanderaa Optode 4831",
+            "OOI_series": "DOSTA-M",
+            "long_name": "Dissolved Oxygen Sensor",
+            "calibration_date": "2019-05-28T00:00:00Z",
+            "comment": "Offset from pressure sensor = 0.917 m",
+            "offset_from_depth_sensor": "0.917m",
+            "factory_calibrated": "2019-05-28T00:00:00Z",
+            "calibration_report": "DOSTA-M_Optode-4831_SN_178_Calibration_2019-05-28.pdf",
+            "calibration_directory_url": "https://alfresco.oceanobservatories.org/alfresco/n/browse/workspace/SpacesStore/802d2213-990e-49a5-8039-59995835f733",
+            "TWR_customer_service_report": "5211",
+            "type": "instrument",
+            "platform": "platform"
+        }
+    }
+]
