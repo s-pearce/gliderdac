@@ -207,8 +207,14 @@ def lat_and_lon_coordinates(dba, time_sensor):
 
     # Skip default values (69696969)
     # ToDo: fix this so it doesn't print a warning
-    lat_sensor['data'][lat_sensor['data'] > 9000.0] = np.nan
-    lat_sensor['data'] = gps.iso2deg(lat_sensor['data'])
+    lats = lat_sensor['data']
+    lat_ii = np.flatnonzero(np.isfinite(lats))
+    bad_lats = lats[lat_ii] > 9000.0
+    lats[lat_ii[bad_lats]] = np.nan
+    lat_sensor['data'] = gps.iso2deg(lats)
+
+    # lat_sensor['data'][lat_sensor['data'] > 9000.0] = np.nan
+    # lat_sensor['data'] = gps.iso2deg(lat_sensor['data'])
 
     # Convert m_gps_lon to decimal degrees and create the new sensor
     # definition
@@ -218,8 +224,14 @@ def lat_and_lon_coordinates(dba, time_sensor):
 
     # Skip default values (69696969)
     # ToDo: fix this so it doesn't print a warning
-    lon_sensor['data'][lon_sensor['data'] > 18000] = np.nan
-    lon_sensor['data'] = gps.iso2deg(lon_sensor['data'])
+    lons = lon_sensor['data']
+    lon_ii = np.flatnonzero(np.isfinite(lons))
+    bad_lons = lons[lon_ii] > 18000.0
+    lons[lon_ii[bad_lons]] = np.nan
+    lon_sensor['data'] = gps.iso2deg(lons)
+
+    # lon_sensor['data'][lon_sensor['data'] > 18000] = np.nan
+    # lon_sensor['data'] = gps.iso2deg(lon_sensor['data'])
 
     logging.info('Filling lat and lon coordinates by interpolation '
                  'between GPS fixes')
