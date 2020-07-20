@@ -399,8 +399,12 @@ def _get_initial_uv(dba):
     vx = dba[vx_sensor]
     vy = dba[vy_sensor]
     seg_initial_ii = np.flatnonzero(np.isfinite(vx['data']))
-    vx['data'] = vx['data'][seg_initial_ii[-1]]
-    vy['data'] = vy['data'][seg_initial_ii[-1]]
+    if len(seg_initial_ii) == 0:
+        vx['data'] = np.nan
+        vy['data'] = np.nan
+    else:
+        vx['data'] = vx['data'][seg_initial_ii[-1]]
+        vy['data'] = vy['data'][seg_initial_ii[-1]]
 
     vx.pop('sensor_name')
     vx['nc_var_name'] = 'u'
@@ -433,9 +437,13 @@ def _get_final_uv(dba, check_files):
     # to compare when the parameter is updated in a later file.
     seg_final_vx = dba.getdata('m_final_water_vx')
     seg_final_vy = dba.getdata('m_final_water_vy')
-    seg_final_ii = np.isfinite(seg_final_vx)
-    seg_final_vx = seg_final_vx[seg_final_ii][-1]
-    seg_final_vy = seg_final_vy[seg_final_ii][-1]
+    seg_final_ii = np.flatnonzero(np.isfinite(seg_final_vx))
+    if len(seg_final_ii) == 0:
+        seg_final_vx = np.nan
+        seg_final_vy = np.nan
+    else:
+        seg_final_vx = seg_final_vx[seg_final_ii][-1]
+        seg_final_vy = seg_final_vy[seg_final_ii][-1]
     mis_num = int(dba.file_metadata['the8x3_filename'][:4])
     seg_num = int(dba.file_metadata['the8x3_filename'][4:])
 

@@ -380,6 +380,10 @@ def main(args):
     logging.debug('Writing run status to status.json')
     if start_profile_id > 0:
         status['next_profile_id'] = ncw.profile_id
+    already_processed = set(status['files_processed'])
+    set_processed_dbas = set(processed_dbas)
+    processed_dbas = list(set_processed_dbas.difference(already_processed))
+    processed_dbas.sort(key=sort_function)  # sets don't preserve order
     status['files_processed'].extend(processed_dbas)
     status['profiles_created'].extend(output_nc_files)
     with open(status_path, 'w') as fid:

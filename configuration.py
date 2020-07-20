@@ -52,4 +52,4 @@ MIN_DATA_VALS = 5
 MIN_DIVE_DEPTH = 2.0
 
 
-processing_dir = "C:\\Users\\spearce\\data\\dac\\processing_test"
+PROCESSING_DIR = "C:\\Users\\spearce\\data\\dac\\processing_test"
