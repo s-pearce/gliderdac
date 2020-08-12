@@ -142,30 +142,11 @@ def main(args):
 
     # Pre-processing
     # ToDo: clean this up
-    corrections = {}
-    if 'corrected_oxygen' in ncw.config_sensor_defs:
-        corrections['corrected_oxygen'] = {
-            'calculation_type': ncw.config_sensor_defs['corrected_oxygen'][
-                'attrs']['calculation_type'],
-            'cal_coefs': ncw.config_sensor_defs['corrected_oxygen'][
-                'attrs'].pop('cal_coefs')
-        }
-
-    if 'corrected_chlor' in ncw.config_sensor_defs:
-        corrections['corrected_chlor'] = {
-            'dark_offset': ncw.config_sensor_defs['corrected_chlor'][
-                'attrs'].pop('dark_offset'),
-            'scale_factor': ncw.config_sensor_defs['corrected_chlor'][
-                'attrs'].pop('scale_factor')
-        }
-
-    if 'corrected_par' in ncw.config_sensor_defs:
-        corrections['corrected_par'] = {
-            'sensor_dark': ncw.config_sensor_defs['corrected_par'][
-                'attrs'].pop('sensor_dark'),
-            'scale_factor': ncw.config_sensor_defs['corrected_par'][
-                'attrs'].pop('scale_factor')
-        }
+    var_processing = {}
+    for var_defs in ncw.config_sensor_defs:
+        if "processing" in ncw.config_sensor_defs[var_defs]:
+            var_processing[var_defs] = ncw.config_sensor_defs[var_defs].pop(
+                "processing")
 
     for dba_file in dba_files:
         # change to non-indented log format (see above)
@@ -254,8 +235,9 @@ def main(args):
         if 'corrected_oxygen' in ncw.config_sensor_defs:
             dba = processing.check_and_recalc_o2(
                 dba,
-                calc_type=corrections['corrected_oxygen']['calculation_type'],
-                cal_dict=corrections['corrected_oxygen']['cal_coefs']
+                calc_type=var_processing['corrected_oxygen'][
+                    'calculation_type'],
+                cal_dict=var_processing['corrected_oxygen']['cal_coefs']
             )
             dba = processing.o2_s_and_p_comp(dba, 'corrected_oxygen')
         elif 'sci_oxy4_oxygen' in dba.sensor_names:
@@ -266,7 +248,7 @@ def main(args):
         # Re_calculate chlorophyll
         if 'corrected_chlor' in ncw.config_sensor_defs:
             dba = processing.recalc_chlor(
-                dba, **corrections['corrected_chlor']
+                dba, **var_processing['corrected_chlor']
                 # dark_offset=corrections['corrected_chlor']['dark_offset'],
                 # scale_factor=corrections['corrected_chlor']['scale_factor']
             )
@@ -278,19 +260,27 @@ def main(args):
             # par_sensor_dark = corrections['corrected_par']['sensor_dark']
             # par_sf = corrections['corrected_par']['scale_factor']
             dba = processing.recalc_par(
-                dba, **corrections['corrected_par']
+                dba, **var_processing['corrected_par']
                 # sensor_dark=par_sensor_dark,
                 # scale_factor=par_sf
             )
             if dba is None:
                 continue
 
-        if 'sci_flbbcd_bb_units' in dba.sensor_names:
-            dba = processing.backscatter_total(dba)
+        bb_sensor = 'sci_flbbcd_bb_units'
+        if bb_sensor in dba.sensor_names and 'backscatter' in \
+                ncw.config_sensor_defs:
+            assert "backscatter" in var_processing, (
+                'A "processing" section is required in the "backscatter" '
+                'section of sensor_defs.json that has the "wlngth", "theta", '
+                'and "xfactor" parameters to process `backscatter`')
+
+            dba = processing.backscatter_total(dba, **var_processing[
+                'backscatter'])
             if dba is None:
                 continue
             radiation_wavelength = {
-                'data': 700,
+                'data': var_processing['backscatter']['wlngth'],
                 'attrs': {'units': 'nm'},
                 'nc_var_name': 'radiation_wavelength'}
             scalars.append(radiation_wavelength)

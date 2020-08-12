@@ -1,12 +1,46 @@
 How To Correct/Recalculate Oxygen Data from Calphase in the DAC code:
 
+To recalculate oxygen from the calibrated phase measurement from an Aanderaa
+4832 optode, edit the JSON entry in sensor_defs.json for that deployment by:
+    1. Changing the name of the entry from "oxygen" to
+    "corrected_oxygen"
+    2. Adding a "processing" dictionary to the top level of the
+    "corrected_oxygen" dictionary
+    3. Add a "calculation_type" entry to the "attrs" dictionary.  This must
+    be either "MkII" or "SVU".  This is added to the 'attrs' so that it is kept
+    in the netCDF variable attributes of the final product for traceability.
+    4. Add the relevant calibration inputs for the calculation type used to
+    recalculate oxygen from calphase.
+
+For the specific cases, see the further instruction and example cases below.
 A. MkII calculation (Not multipoint calibrated optodes)
 B. SVU calculation (Multipoint calibrated optodes)
 
 
 A. For a recalculation using the MkII calculation (previous to using the
     SVU calculation):
-Edit the JSON entry in sensor_defs.json for that deployment to look like:
+
+    The "processing" dictionary is required to have entries "C",
+    "FoilPolyDegT", "FoilPolyDegO", and "ConcCoef".  These entries should have
+    the calibration coefficients values from the appropriate Calibration
+    Certificate document that is relevant for this deployment.
+    Where:
+        - "C" are the values "FoilCoefA" and "FoilCoefB" concatenated together
+         into one list.
+        - "FoilPolyDegT" and "FoilPolyDegO" are the power coefficients for
+         temperature and calphase respectively.
+        - ConcCoef are the calibration adjustment values.
+        - Note that "FoilCoefA", "FoilCoefB", "FoilPolyDegT", and "FoilPolyDegO"
+         are values associated with the foil ID, rather than the specific optode
+         and calibration whereas "ConcCoef" is a value specifically associated
+         with the optode and calibration.  This might mean the values are found
+         on different documents, but they can all be found in the optode's
+         internal configuration printout.
+
+    Here is an example:
+        Note: The "comment" entry under "attrs" here has also been added for this
+        example, but is not required.
+
     "corrected_oxygen": {
         "attrs": {
             "_FillValue": NaN,
@@ -24,8 +58,11 @@ Edit the JSON entry in sensor_defs.json for that deployment to look like:
             "standard_name": "moles_of_oxygen_per_unit_mass_in_sea_water",
             "valid_max": 500.0,
             "valid_min": 0.0,
-            "calculation_type": "MkII",
-            "cal_coefs": {
+            "calculation_type": "MkII"
+        "dimension": "time",
+        "nc_var_name": "dissolved_oxygen",
+        "type": "f8",
+        "processing": {
                 "C": [
                     -2.822802e-06, -6.776306e-06, 0.001803907, -0.1930332, 0.0006291334,
                     -2.982824e-07, 10.49904, -0.0545574, 9.256498e-05, -4.397045e-07,
@@ -44,26 +81,24 @@ Edit the JSON entry in sensor_defs.json for that deployment to look like:
                 ],
                 "ConcCoef": [-7.147465E-01, 1.137800E+00]
             }
-        },
-        "dimension": "time",
-        "nc_var_name": "dissolved_oxygen",
-        "type": "f8"
+        }
     },
 
-where the name of the entry is changed from "oxygen" to "corrected_oxygen"
-and the "cal_coefs" and "calculation_type" entries are added to the
-"attrs" dictionary.  The "cal_coefs" entry is a sub-dictionary where "C"
-is "FoilCoefA" and "FoilCoefB" from the calibration coefficients from are 
-concatenated into a list; and "FoilPolyDegT" and "FoilPolyDegO" are the
-power coefficients from the calibration. Note that "FoilCoefA", 
-"FoilCoefB", "FoilPolyDegT", and "FoilPolyDegO" are values associated 
-with the foil ID, rather than the specific optode and calibration.
-"ConcCoef" is a value specifically associated with the optode and calibration.
-The "comments" entry under "attrs" has also been added here, but it is not required.
-Everything else stays the same as the original sensor_defs.json entry.
+
 
 
 B. For recalculation using the SVU calculation:
+
+    The "processing" dictionary is required to have entries "SVUFoilCoef"
+    and "ConcCoef", where "SVUFoilCoef" are the Sterm-Volmer-Uchida calibration
+    coefficients and "ConcCoef" are the Concentration adjustment Coefficient
+    values for adjusting a calibration.  Both of these are found in the
+    calibration certificate or from the optode's configuration.
+
+    Here is an example:
+        Note: The "comment" entry under "attrs" here has also been added for this
+        example, but is not required.
+
 Edit the JSON entry in sensor_defs.json for that deployment to look like:
     "corrected_oxygen": {
         "attrs": {
@@ -82,31 +117,21 @@ Edit the JSON entry in sensor_defs.json for that deployment to look like:
             "standard_name": "moles_of_oxygen_per_unit_mass_in_sea_water",
             "valid_max": 500.0,
             "valid_min": 0.0,
-            "calculation_type": "SVU",
-            "cal_coefs": {
-                "SVUFoilCoef": [
-                    2.677422E-03,
-                    1.151494E-04,
-                    2.177496E-06,
-                    2.289442E+02,
-                    -4.103772E-01,
-                    -5.843925E+01,
-                    4.550254E+00
-                ],
-                "ConcCoef": [-2.562374E+00, 1.079771E+00]
-            }
+            "calculation_type": "SVU"
         },
         "dimension": "time",
         "nc_var_name": "dissolved_oxygen",
-        "type": "f8"
+        "type": "f8",
+        "processing": {
+            "SVUFoilCoef": [
+                2.677422E-03,
+                1.151494E-04,
+                2.177496E-06,
+                2.289442E+02,
+                -4.103772E-01,
+                -5.843925E+01,
+                4.550254E+00
+            ],
+            "ConcCoef": [-2.562374E+00, 1.079771E+00]
+        }
     },
-
-where the name of the entry is changed from "oxygen" to "corrected_oxygen"
-and the "cal_coefs" and "calculation_type" entries are added to the
-"attrs" dictionary.  The "cal_coefs" entry is a sub-dictionary where 
-"SVUFoilCoef" are the Sterm-Volmer-Uchida calibration coefficients and 
-"ConcCoef" are the Concentration Coefficient values for adjusting a
-calibration.  Both of these are found in the calibration certificate or
-from the optode's configuration.
-The "comments" entry under "attrs" has also been added here, but it is not required.
-Everything else stays the same as the original sensor_defs.json entry.

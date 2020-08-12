@@ -3,8 +3,21 @@ How To Correct/Recalculate Chlorophyll Data from raw signal counts in the DAC co
 For a recalculation of Chlorophyll from raw instrument signal counts
 according to the manual and calibration certificate for the WETLabs 
 ECO Puck FLBBCD:
-Edit the chlorophyll section JSON entry in sensor_defs.json for the 
-deployment you want to recalculate to look like:
+Edit the chlorophyll section JSON entry in sensor_defs.json for the
+deployment you want to recalculate by:
+    1. Changing the name of the entry from "sci_flbbcd_chlor" to
+    "corrected_chlor"
+    2. Adding a "processing" dictionary to the "corrected_chlor" dictionary
+    3. Add "dark_offset" and "scale_factor" (ug/L/counts) entries to the
+    "processing" dictionary where "dark_offset" and the "scale_factor" entries
+    are the "Dark Counts" and "Scale Factor" values found in the ECO Chlorophyll
+    Fluoromter Characterization Sheet from the relevant calibration certificate
+    for this deployment.
+
+    Here is an example:
+        Note: The "comment" entry under "attrs" here has also been added for this
+        example, but is not required.
+
     "corrected_chlor": {
         "attrs": {
             "_FillValue": NaN,
@@ -22,21 +35,13 @@ deployment you want to recalculate to look like:
             "standard_name": "mass_concentration_of_chlorophyll_a_in_sea_water",
             "units": "ug l-1",
             "valid_max": 50.0,
-            "valid_min": 0.0,
-            "dark_offset": 45,
-            "scale_factor": 0.0070
+            "valid_min": 0.0
         },
         "dimension": "time",
         "nc_var_name": "chlorophyll",
-        "type": "f8"
+        "type": "f8",
+        "processing": {
+            "dark_offset": 45,
+            "scale_factor": 0.0070
+        }
     },
-
-where the name of the entry is changed from "sci_flbbcd_chlor" to 
-"corrected_chlor" and the "dark_offset" and "scale_factor" (ug/L/counts)
-entries are added to the "attrs" dictionary. The "dark_offset" entry is
-the "Dark Counts" value and the "scale_factor" entry is the "Scale Factor"
-value found in the ECO Chlorophyll Fluoromter Characterization Sheet
-from the relevant calibration certificate for this deployment.
-
-The "comment" entry under "attrs" here has also been added for this
-example, but is not required.

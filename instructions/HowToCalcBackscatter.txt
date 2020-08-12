@@ -1,0 +1,57 @@
+How To Process Backscatter Data from any WETLabs ECO sensor in the DAC code:
+
+To process Backscatter from the glider output 'sci_xxxxx_bb_units',
+(where xxxxxx could be any of the ECO letter designations e.g. flbbcd
+for Chlorophyll(fl), Backscatter(bb), and CDOM(cd)) inputs for the Centroid
+Angle of the instrument, the wavelength, and the Chi-factor parameters are
+required.  See the code from OOI's oceanobservatories Github page:
+https://github.com/oceanobservatories/ion-functions/blob/master/ion_functions
+/data/flo_functions.py
+or the copy of the same code here in the dac code set under
+ooidac/processing_dir/fluorometer.py for a description of these parameters.
+
+To add these parameters as inputs to the processing code, edit the "backscatter"
+section JSON entry in sensor_defs.json for the deployment by:
+    1. Add a "processing" dictionary to the "backscatter" dictionary
+    2. Add "wlngth", "theta", and "xfactor" entries to the "processing"
+    dictionary.  Where:
+        - "wlngth" is the wavelength in nanometers (nm),
+        - "theta" is the centroid angle in degrees which according to WETLabs
+        documentation, 124 degrees is used for the Triplet 3-channel sensors and
+        142 degrees is used for the dual channel sensors.
+        https://www.seabird.com/asset-get.download.jsa?id=54627861515
+        - "xfactor" is the chi-factor and for the 3 channel sensors is 1.076 and
+         dual channel sensors is 1.096.
+
+
+    Here is an example for a FLBBCD Chlorophyll, Backscatter, CDOM sensor that
+    measures at wavelength 700 nm
+        Note: The "comment" entry under "attrs" here has also been added for this
+        example, but is not required.
+
+    "backscatter": {
+        "attrs": {
+            "_FillValue": NaN,
+            "accuracy": " ",
+            "ancillary_variables": "instrument_flbbcd radiation_wavelength",
+            "instrument": "instrument_flbbcd",
+            "long_name": "Optical Backscatter (red wavelengths)",
+            "OOI_data_product_name": "FLUBSCT",
+            "OOI_data_level": "L2a",
+            "observation_type": "calculated",
+            "platform": "platform",
+            "precision": " ",
+            "radiation_wavelength": "700nm",
+            "resolution": "0.001",
+            "standard_name": "volume_backwards_scattering_coefficient_of_radiative_flux_in_sea_water",
+            "units": "m-1"
+        },
+        "dimension": "time",
+        "nc_var_name": "backscatter",
+        "type": "f8",
+        "processing": {
+            "wlngth": 700.0,
+            "theta": 124.0,
+            "xfactor": 1.076
+        }
+    },
