@@ -267,20 +267,32 @@ def main(args):
             if dba is None:
                 continue
 
-        bb_sensor = 'sci_flbbcd_bb_units'
-        if bb_sensor in dba.sensor_names and 'backscatter' in \
-                ncw.config_sensor_defs:
-            assert "backscatter" in var_processing, (
-                'A "processing" section is required in the "backscatter" '
-                'section of sensor_defs.json that has the "wlngth", "theta", '
-                'and "xfactor" parameters to process `backscatter`')
+        if 'backscatter' in ncw.config_sensor_defs:
+            if 'backscatter' in var_processing:
+                bksctr_args = var_processing['backscatter']
+                required_keys = ['theta', 'wlngth', 'xfactor', 'source_sensor']
 
-            dba = processing.backscatter_total(dba, **var_processing[
-                'backscatter'])
+                assert all([x in bksctr_args for x in required_keys]), (
+                    'If there is a "processing" dictionary for "backscatter", '
+                    'it must have "source_sensor", "theta", "wlngth", and '
+                    '"xfactor" fields present'
+                )
+
+                wavelength = bksctr_args['wlngth']
+                bb_sensor = bksctr_args.pop('source_sensor')
+            else:
+                # for now assume we are using flbbcds with 700 nm wavelength as
+                # the default, the input values to the backscatter_total
+                # function also default to the flbbcd values.
+                bksctr_args = {}
+                wavelength = 700.0
+                bb_sensor = 'sci_flbbcd_bb_units'
+
+            dba = processing.backscatter_total(dba, bb_sensor, **bksctr_args)
             if dba is None:
                 continue
             radiation_wavelength = {
-                'data': var_processing['backscatter']['wlngth'],
+                'data': wavelength,
                 'attrs': {'units': 'nm'},
                 'nc_var_name': 'radiation_wavelength'}
             scalars.append(radiation_wavelength)

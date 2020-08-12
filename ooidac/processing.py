@@ -557,16 +557,18 @@ def get_segment_time_and_pos(dba):
     return segment_time, segment_lat, segment_lon
 
 
-def backscatter_total(gldata, wlngth=700.0, theta=124.0, xfactor=1.076):
+def backscatter_total(gldata, src_sensor, wlngth=700.0, theta=124.0,
+                      xfactor=1.076):
     """Calculate total backscatter.
 
     :param gldata: a GliderData instance
+    :param src_sensor: The source sensor(variable) to use for the calculation
     :param theta: Centroid Angle of the backscatter sensor
     :param wlngth: Wavelength of the backscatter sensor
     :param xfactor: Chi-factor of the backscatter sensor
     :return:
     """
-    backscatter_particle = gldata['sci_flbbcd_bb_units']
+    backscatter_particle = gldata[src_sensor]
     beta = backscatter_particle['data'].copy()
     backscatter_particle['data'] = np.full(len(beta), np.nan)
     beta_ii = np.isfinite(beta)
