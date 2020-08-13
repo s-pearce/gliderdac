@@ -9,7 +9,7 @@ from ooidac.data_classes import DbaData
 from ooidac.readers.slocum import parse_dba_header
 from ooidac.utilities import fwd_fill
 from ooidac.ctd import calculate_practical_salinity, calculate_density
-from ooidac.processing_dir.fluorometer import flo_bback_total
+from ooidac.processing_dir.fluorometer import flo_bback_total, flo_beta
 from ooidac.processing_dir.oxygen_calculation import calc_o2, do2_SVU
 from configuration import SCITIMESENSOR
 from ooidac.constants import (
@@ -557,20 +557,78 @@ def get_segment_time_and_pos(dba):
     return segment_time, segment_lat, segment_lon
 
 
-def backscatter_total(gldata, src_sensor, wlngth=700.0, theta=124.0,
-                      xfactor=1.076):
-    """Calculate total backscatter.
+def backscatter_total(gldata, src_sensor, var_name, **kwargs):
+    """Calculate total backscatter
+
+    Can either calculate total backscatter from the scaled units uE/m^2sec or
+    from raw instrument counts if `dark_counts` and `scale_factor` are
+    included as inputs.  If inputs `wlngth`, `theta`, and `xfactor` are not
+    included, the parameters for a 3 channel ECO triplet with 700 nm
+    wavelength are assumed (e.g. FLBBCD)
 
     :param gldata: a GliderData instance
-    :param src_sensor: The source sensor(variable) to use for the calculation
-    :param theta: Centroid Angle of the backscatter sensor
-    :param wlngth: Wavelength of the backscatter sensor
-    :param xfactor: Chi-factor of the backscatter sensor
-    :return:
+    :param str src_sensor: The source sensor(variable) to use for the
+        calculation
+    :param str var_name: The variable name to use for backscatter added to
+        the GliderData instance.
+    :param kwargs: optional keyword arguments
+        wlngth: Wavelength of the backscatter sensor [nm]. Default is 700 nm
+        theta: Centroid Angle of the backscatter sensor [degrees].
+            Default is 124 degrees.
+        xfactor: Chi-factor of the backscatter sensor.  Default is 1.076
+        dark_counts : The raw counts value for the sensor in the dark from the
+            calibration information. Must be included with `scale_factor`,
+            otherwise ignored
+        scale_factor: The wet scale factor for the sensor from the calibration
+            information for the appropriate end units. Must be included with
+            `dark_counts` otherwise ignored
+
+    :return: The GliderData instance with the backscatter variable added.
     """
-    backscatter_particle = gldata[src_sensor]
-    beta = backscatter_particle['data'].copy()
+    # set defaults if these arguments are not included in the kwargs
+    required_args = ['theta', 'wlngth', 'xfactor']
+    if (
+            'wlngth' not in kwargs and
+            'theta' not in kwargs and
+            'xfactor' not in kwargs):
+        kwargs['wlngth'] = 700.0
+        kwargs['theta'] = 124.0
+        kwargs['xfactor'] = 1.076
+    assert all([x in kwargs for x in required_args]), (
+        '"wlngth", "theta", and "xfactor" must either all be present or absent '
+        'in the "processing" dictionary for "{:s}".'.format(var_name)
+    )
+
+    # return if sensor is not found in GliderData instance
+    if src_sensor not in gldata.sensor_names:
+        logger.warning(
+            'Adding {:s} as all NaNs because source variable {:s} for '
+            'processing does not exist'.format(
+                var_name, src_sensor))
+        gldata = _add_nan_variable(gldata, var_name)
+        return gldata
+
+    # copy the particle structure to keep the metadata from the src_sensor
+    backscatter_particle = deepcopy(gldata[src_sensor])
+
+    # if src_sensor ends with _sig it is in raw counts and needs to be converted
+    # to beta using the calibration values for dark_counts and scale_factor,
+    # which both need to be present.
+    if src_sensor.endswith('_sig'):
+        assert ('dark_counts' in kwargs and 'scale_factor' in kwargs), (
+            '"dark_counts" and "scale_factor" must be included as "processing" '
+            'dictionary arguments for "{:s}" in sensor_defs.json.'.format(
+                var_name)
+        )
+        dark_counts = kwargs.pop('dark_counts')
+        scale_factor = kwargs.pop('scale_factor')
+        counts = backscatter_particle['data'].copy()
+        beta = flo_beta(counts, dark_counts, scale_factor)
+    else:
+        beta = backscatter_particle['data'].copy()
+
     backscatter_particle['data'] = np.full(len(beta), np.nan)
+
     beta_ii = np.isfinite(beta)
     timestamps = gldata.getdata('m_present_time')
     beta_ts = timestamps[beta_ii]
@@ -583,10 +641,13 @@ def backscatter_total(gldata, src_sensor, wlngth=700.0, theta=124.0,
     salt_bt = np.interp(
         beta_ts, timestamps[np.isfinite(salt)], salt[np.isfinite(salt)])
 
+    theta = kwargs['theta']
+    wlngth = kwargs['wlngth']
+    xfactor = kwargs['xfactor']
     bback = flo_bback_total(beta, temp_bt, salt_bt, theta, wlngth, xfactor)
 
     backscatter_particle['data'][beta_ii] = bback
-    backscatter_particle['sensor_name'] = 'backscatter'
+    backscatter_particle['sensor_name'] = var_name
     backscatter_particle['attrs']['units'] = 'm-1'
 
     gldata.add_data(backscatter_particle)
@@ -873,7 +934,7 @@ def replace_missing_sensors(gldata, available_sensors):
     return gldata
 
 
-def _add_nan_variable(gdata, variable_name, derived_variable):
+def _add_nan_variable(gdata, variable_name, derived_variable=None):
     """ Adds a variable named `variable_name` to the glider data object
     `gdata` that is filled with all NaNs using the attributes from variable /
     sensor `derived_variable`
@@ -886,7 +947,10 @@ def _add_nan_variable(gdata, variable_name, derived_variable):
         units, long_name, and bytes (that indicates data type).
     :return: gdata: GliderData instance with new NaN-filled variable added
     """
-    nanvar = deepcopy(gdata[derived_variable])
+    if derived_variable is not None and derived_variable in gdata.sensor_names:
+        nanvar = deepcopy(gdata[derived_variable])
+    else:
+        nanvar = {'attrs': {}}
     nanvar['sensor_name'] = variable_name
     nanvar['data'] = np.full(len(gdata), np.nan)
     gdata.add_data(nanvar)

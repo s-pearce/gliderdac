@@ -267,19 +267,18 @@ def main(args):
             if dba is None:
                 continue
 
-        if 'backscatter' in ncw.config_sensor_defs:
-            if 'backscatter' in var_processing:
-                bksctr_args = var_processing['backscatter']
-                required_keys = ['theta', 'wlngth', 'xfactor', 'source_sensor']
-
-                assert all([x in bksctr_args for x in required_keys]), (
-                    'If there is a "processing" dictionary for "backscatter", '
-                    'it must have "source_sensor", "theta", "wlngth", and '
-                    '"xfactor" fields present'
+        bksctr_vars = [x for x in ncw.config_sensor_defs if 'backscatter' in x]
+        for var_name in bksctr_vars:
+            if var_name in var_processing:
+                bksctr_args = var_processing[var_name]
+                assert "source_sensor" in bksctr_args, (
+                    'In the "processing" dictionary for variable "{:s}" in '
+                    'sensor_defs.json, a "source_sensor" field must be present '
+                    'with the glider sensor name to use for '
+                    'processing.'.format(var_name)
                 )
-
-                wavelength = bksctr_args['wlngth']
                 bb_sensor = bksctr_args.pop('source_sensor')
+
             else:
                 # for now assume we are using flbbcds with 700 nm wavelength as
                 # the default, the input values to the backscatter_total
@@ -288,13 +287,32 @@ def main(args):
                 wavelength = 700.0
                 bb_sensor = 'sci_flbbcd_bb_units'
 
-            dba = processing.backscatter_total(dba, bb_sensor, **bksctr_args)
+            dba = processing.backscatter_total(
+                dba, bb_sensor, var_name, **bksctr_args)
             if dba is None:
                 continue
+
+        # Add radiation wavelength variables as a paired variable to
+        # the backscatter variables
+        # if wavelength is not present, assume FLBB 700 nm
+        # Note: this will likely change in the future to only include
+        #   'radiation_wavelength' as an attribute to the backscatter variable.
+        #   It is too much to have a variable for each if there are multiple
+        #   backscatter variables.  Although the future release will control if
+        #   you want it to be a variable or not just by the processing
+        #   dictionary
+        rw_vars = [x for x in ncw.config_sensor_defs
+                   if 'radiation_wavelength' in x]
+        for rw_var in rw_vars:
+            sdef = ncw.config_sensor_defs[rw_var]
+            if 'radiation_wavelength' in sdef['attrs']:
+                wl = sdef['attrs']['radiation_wavelength']
+            else:
+                wl = 700.0
             radiation_wavelength = {
-                'data': wavelength,
+                'data': wl,
                 'attrs': {'units': 'nm'},
-                'nc_var_name': 'radiation_wavelength'}
+                'nc_var_name': rw_var}
             scalars.append(radiation_wavelength)
 
         # If Depth Averaged Velocity (DAV) data available, (i.e. any of the

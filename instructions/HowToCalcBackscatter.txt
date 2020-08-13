@@ -1,20 +1,39 @@
-How To Process Backscatter Data from any WETLabs ECO sensor in the DAC code:
+How To Process Backscatter Data:
 
-To process Backscatter from the glider output 'sci_xxxxx_bb_units',
-(where xxxxxx could be any of the ECO letter designations e.g. flbbcd
-for Chlorophyll(fl), Backscatter(bb), and CDOM(cd)) inputs for the Centroid
-Angle of the instrument, the wavelength, and the Chi-factor parameters are
-required.  See the code from OOI's oceanobservatories Github page:
+To process Backscatter from the scaled glider output of any WETLabs/Seabird ECO
+Puck backscatter instrument (e.g. 'sci_flbbcd_bb_units' where flbbcd is the ECO
+letter designations for Chlorophyll(fl), Backscatter(bb), and CDOM(cd)),
+inputs for the Centroid Angle of the instrument, the wavelength, and the
+Chi-factor parameters are needed. The values are determined from journal
+articles and from WETLabs.
+
+See the code from OOI's oceanobservatories Github page:
 https://github.com/oceanobservatories/ion-functions/blob/master/ion_functions
 /data/flo_functions.py
 or the copy of the same code here in the dac code set under
 ooidac/processing_dir/fluorometer.py for a description of these parameters.
 
-To add these parameters as inputs to the processing code, edit the "backscatter"
-section JSON entry in sensor_defs.json for the deployment by:
-    1. Add a "processing" dictionary to the "backscatter" dictionary
-    2. Add "wlngth", "theta", and "xfactor" entries to the "processing"
-    dictionary.  Where:
+Alternatively, Backscatter can be processed from the raw instrument counts
+(e.g. 'sci_flbbcd_bb_sig') and the calibration parameters "Dark counts" and
+"Scale Factor" from the Scattering Meter Calibration Sheet included with the
+instrument's recent calibration are additionally required.
+
+First in sensor_defs.json, the code looks for any section that is labeled
+"backscatter*".  That is it will repeat the processing for any variant that
+has "backscatter" in the variable name (e.g. "backscatter", "backscatter_700",
+"backscatter650", etc.). **Remember to change the 'nc_var_name' attribute too.**
+
+A. From scaled output
+B. From raw counts
+
+A. To process from scaled output, add the required parameters as inputs to
+   the processing code, edit the "backscatter*" section JSON entry in
+   sensor_defs.json for the deployment by:
+    1. Add a "processing" dictionary to the "backscatter*" dictionary
+    2. Add "source_sensor", "wlngth", "theta", and "xfactor" entries to the
+    "processing" dictionary.  Where:
+        - "source_sensor" is the name of the glider sensor used to process to
+        backscatter (e.g. 'sci_flbbcd_bb_units' for a flbbcd instrument)
         - "wlngth" is the wavelength in nanometers (nm),
         - "theta" is the centroid angle in degrees which according to WETLabs
         documentation, 124 degrees is used for the Triplet 3-channel sensors and
@@ -22,12 +41,15 @@ section JSON entry in sensor_defs.json for the deployment by:
         https://www.seabird.com/asset-get.download.jsa?id=54627861515
         - "xfactor" is the chi-factor and for the 3 channel sensors is 1.076 and
          dual channel sensors is 1.096.
-
+    Note: If all of these input parameters are left out or of the "processing"
+    arguments, then it is assumed to be an ECO triplet with 700 nm wavelength.
+    If any one or more are left out, it will cause an error, so either
+    all or none of these parameters should be included.
+    If the "processing" dictionary is left out completely, it is assumed that
+    the source sensor to use for processing is 'sci_flbbcd_bb_units'.
 
     Here is an example for a FLBBCD Chlorophyll, Backscatter, CDOM sensor that
-    measures at wavelength 700 nm
-        Note: The "comment" entry under "attrs" here has also been added for this
-        example, but is not required.
+    measures at wavelength 700 nm:
 
     "backscatter": {
         "attrs": {
@@ -50,8 +72,61 @@ section JSON entry in sensor_defs.json for the deployment by:
         "nc_var_name": "backscatter",
         "type": "f8",
         "processing": {
+            "source_sensor": "sci_flbbcd_bb_units",
             "wlngth": 700.0,
             "theta": 124.0,
             "xfactor": 1.076
         }
-    },
+    }, ...
+
+
+B. To process from raw output, add the required parameters as inputs to
+   the processing code, edit the "backscatter*" section JSON entry in
+   sensor_defs.json for the deployment by:
+    1. Add a "processing" dictionary to the "backscatter*" dictionary
+    2. Add "source_sensor", "dark_counts", "scale_factor",entries
+       to the "processing" dictionary, where:
+        - "source_sensor" is the name of the glider sensor used to process to
+        backscatter (e.g. 'sci_flbbcd_bb_units' for a flbbcd instrument)
+        - "dark_counts" is the "Dark counts" value from the calibration sheet
+        - "scale_factor" is the "Scale Factor" value from the calibration sheet
+    3. Optionally add "wlngth", "theta", and "xfactor" to the "processing"
+       dictionary.  See section A for the description and typical values.
+       Note: If all of the optional input parameters are left out of the
+       "processing" arguments, then it is assumed to be an
+       ECO triplet with 700 nm wavelength. If any one or more are left out,
+       it will cause an error, so either all or none of these optional
+       parameters should be included.
+
+    Here is an example for a BB3SLO 3 channel Backscatter sensor that measures
+    at wavelengths 470, 532, 650 nm, using the 650 nm for the example.
+
+    "backscatter_650": {
+        "attrs": {
+            "_FillValue": NaN,
+            "accuracy": " ",
+            "ancillary_variables": "instrument_flbbcd radiation_wavelength",
+            "instrument": "instrument_flbbcd",
+            "long_name": "Optical Backscatter (red wavelengths)",
+            "OOI_data_product_name": "FLUBSCT",
+            "OOI_data_level": "L2a",
+            "observation_type": "calculated",
+            "platform": "platform",
+            "precision": " ",
+            "radiation_wavelength": "700nm",
+            "resolution": "0.001",
+            "standard_name": "volume_backwards_scattering_coefficient_of_radiative_flux_in_sea_water",
+            "units": "m-1"
+        },
+        "dimension": "time",
+        "nc_var_name": "backscatter_650",
+        "type": "f8",
+        "processing": {
+            "source_sensor": "sci_bb3slo_b660_sig",
+            "dark_counts": 46,
+            "scale_factor": 2.131E-6,
+            "wlngth": 650.0,
+            "theta": 124.0,
+            "xfactor": 1.076
+        }
+    }, ...
