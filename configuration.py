@@ -13,6 +13,7 @@
 #  generic approach.  Only Slocum calls variables "sensors" EVERYone else
 #  calls them "variables"
 
+# raw glider sensor/variable names
 TIMESENSOR = 'm_present_time'
 SCITIMESENSOR = 'sci_m_present_time'
 CONDUCTIVITY_SENSOR = 'sci_water_cond'
@@ -21,6 +22,20 @@ PRESSURE_SENSOR = "sci_water_pressure"
 DEPTH_SENSOR = 'm_depth'
 LAT_SENSOR = "m_gps_lat"
 LON_SENSOR = "m_gps_lon"
+
+# processed sensor/variable names
+PROC_LAT_VAR = "llat_latitude"
+PROC_LON_VAR = "llat_longitude"
+PROC_TIME_VAR = "llat_time"
+PROC_PRES_VAR = "llat_pressure"
+PROC_DEPTH_VAR = "depth"
+
+# netCDF variable names
+NC_TIME_VAR = "time"
+NC_LON_VAR = "lon"
+NC_LAT_VAR = "lat"
+NC_PRES_VAR = "pressure"
+NC_DEPTH_VAR = "depth"
 
 REQUIRED_SENSORS = [
     SCITIMESENSOR, TIMESENSOR,
@@ -52,4 +67,4 @@ MIN_DATA_VALS = 5
 MIN_DIVE_DEPTH = 2.0
 
 
-PROCESSING_DIR = "C:\\Users\\spearce\\data\\dac\\processing_test"
+# PROCESSING_DIR = "C:\\Users\\spearce\\data\\dac\\processing_test"

@@ -8,9 +8,7 @@ import shutil
 # import pdb
 import glob
 import json
-# temporary addition to test this script -SP 2019-01-30 to be able to load
-# gncutils -SP 2019-03-11 Maybe don't need after all.  We'll see.
-# sys.path.append('C:\\Users\\spearce\\code\\python\\gliderdac\\')
+
 from ooidac.writers.netCDFwriter import NetCDFWriter
 
 from ooidac.constants import NETCDF_FORMATS, LLAT_SENSORS
