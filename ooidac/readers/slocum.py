@@ -57,12 +57,10 @@ def parse_dba(dba_file, fast=False):
         data = _fast_load_dba_data(dba_file, total_header_lines)
     else:
         data = _load_dba_data(dba_file, total_header_lines)
-    if data is None:
-        return
-    elif len(data) == 0:
-        logger.info('Data length is 0 in dba file: {:s}'.format(
+
+    if data is None or len(data) == 0:
+        logger.warning('Data length is 0 in dba file: {:s}'.format(
             dba_file))
-        return
     elif num_columns != data.shape[1]:
         logger.warning(
             'Glider data file does not have the same'
@@ -153,7 +151,7 @@ def _parse_dba_sensor_defs(fid):
     except IOError as e:
         logging.error(
             'Error parsing {:s} dba header: {:s}'.format(fid.name, e))
-        return
+        return None, None
 
     sensors = sensors_line.split()
     units = units_line.split()
@@ -162,7 +160,7 @@ def _parse_dba_sensor_defs(fid):
     if not sensors:
         logging.warning(
             'No sensor defintions parsed: {:s}'.format(fid.name))
-        return
+        return None, None
 
     sensor_defs = {}
     for ii in range(len(sensors)):

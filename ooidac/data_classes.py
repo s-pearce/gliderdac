@@ -39,8 +39,9 @@ class GliderData(object):
         self.scitimesensorname = None
         self.depth = None
         self.ts = None
-        self.set_ts()
-        self.set_depth()
+        if self.N > 0:
+            self.set_ts()
+            self.set_depth()
 
     # ToDo: fix this function or go back to simple call to _get_dataparticle
     def __getitem__(self, item):
@@ -274,16 +275,18 @@ class DbaData(GliderData):
         dba = parse_dba(dba_file)
         if dba is None:
             return
-        GliderData.__init__(
-            self,
-            dba['header'], dba['sensor_names'],
-            dba['sensor_defs'], dba['data']
-        )
+        else:
+            GliderData.__init__(
+                self,
+                dba['header'], dba['sensor_names'],
+                dba['sensor_defs'], dba['data']
+            )
         self.underwater_indices = None
         self.pre_dive_indices = None
         self.post_dive_indices = None
         self.surface_indices = None
-        self.get_indices()
+        if self.N > 0:
+            self.get_indices()
 
     def get_indices(self):
         """ Determine the indices for when the glider is underwater, at the

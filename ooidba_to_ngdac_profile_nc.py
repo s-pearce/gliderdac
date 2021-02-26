@@ -197,7 +197,7 @@ def main(args):
         # the gdac configuration file, then we add it back in here as an
         # array of NaNs.
         dba = processing.replace_missing_sensors(
-            dba,file_check.avail_sci_data)
+            dba, file_check.avail_sci_data)
 
         # This processing step adds time dependent coordinate variables
         # (designated by the prefix llat [lat, lon, altitude, time]) which are

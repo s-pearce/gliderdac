@@ -465,7 +465,7 @@ def _get_final_uv(dba, check_files):
             )
             continue
         next_dba = DbaData(next_dba_file)
-        if next_dba is None:
+        if next_dba is None or next_dba.N == 0:
             continue
         if 'm_final_water_vx' not in next_dba.sensor_names:
             continue
