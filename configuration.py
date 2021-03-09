@@ -1,4 +1,4 @@
-
+import os
 
 # list the science variables/sensor names from the raw glider data to process.
 # These should match with the netCDF variables in sensor_defs.json
@@ -67,4 +67,5 @@ MIN_DATA_VALS = 5
 MIN_DIVE_DEPTH = 2.0
 
 
-# PROCESSING_DIR = "C:\\Users\\spearce\\data\\dac\\processing_test"
+codedir = os.path.dirname(__file__)
+PROCESSING_DIR = os.path.abspath(os.path.join(codedir, 'ooidac/processing'))

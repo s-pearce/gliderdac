@@ -25,7 +25,8 @@ class GliderData(object):
         else:
             self.source_file = ""
         self._data = data
-        self._sensor_names = sensor_names
+        self._scalars = []
+        self._array_names = sensor_names
         self.sensors = sensors
         self.N = len(self._data)
         # config is meant to be a container for attaching any configuration
@@ -64,7 +65,8 @@ class GliderData(object):
     def __setitem__(self, key, sensor_particle):
         # if this data particle is already there (with the same name) don't
         # continue
-        self.add_data(sensor_particle, key)
+        self.add_data(key, sensor_particle[
+            'data'], **sensor_particle['attrs'])
 
     def __len__(self):
         """Returns a value when the len function is used"""
@@ -83,80 +85,109 @@ class GliderData(object):
         # This is a wrapper to the private attribute just so a new sensor
         # name cannot be added without adding the corresponding data to the end
         # of the self._data array.
-        return self._sensor_names
+        return list(self.sensors.keys())
 
-    def add_data(self, sensor_particle, key=None):
-        if not isinstance(sensor_particle, dict):
+    @property
+    def scalars(self):
+        return self._scalars
+
+    def add_data(self, sensor_name, data, **attrs):
+        """
+
+        :param sensor_name: str
+            the variable name for the new data
+        :param data: int, float, sequence or 1d np.array
+            data to add to the GliderData instance. Data must be either a
+            scalar value, or have the same length as the rest of the data.
+        :param attrs: optional
+            any attributes to save with the data as either keyword=value
+            pairs or as a dictionary of keyword:value pairs.  If argument is a
+            dictionary use the **dict_name expansion.
+        :return:
+        """
+        if not attrs:
+            attrs = {}
+
+        if not isinstance(sensor_name, str):
             logger.warning(
-                "added data should be a dictionary with keys 'attrs', 'data', "
-                "and 'sensor_name'.")
+                "`sensor_name` should be a string variable name for the new "
+                "data.")
             return
 
-        # check that the sensor particle meets the format.
-        keys = list(sensor_particle.keys())
-        keys.sort()
-        for attr in ['attrs', 'data', 'sensor_name']:
-            if attr not in keys:
-                logger.warning('sensor_particle must have the attributes '
-                               '"attrs", "data", and "sensor_name". Data not '
-                               'added.')
-                return
-
+        if not isinstance(data, (list, tuple, int, float, np.ndarray)):
+            logger.warning(
+                "`sensor_data` should be an int, float, sequence, or array.")
+            return
+        data = np.atleast_1d(data)
         # if this data particle is already there (with the same name) don't
         # continue
-        if key and key != sensor_particle['sensor_name']:
-            logger.warning(
-                'New data {:s} does not match sensor_name {:s}'.format(
-                    key, sensor_particle['sensor_name'])
-            )
-            return
-        elif not key:
-            key = sensor_particle['sensor_name']
-
-        if key in self.sensor_names:
+        if sensor_name in self.sensor_names or sensor_name in self.sensors:
             logger.warning((
-                'Data already exists, Not adding new data {:s}.').format(key)
+                'Data already exists, Not adding new data `{:s}`.').format(
+                sensor_name)
             )
             return
 
-        if len(sensor_particle['data']) != self.N:
+        data_len = len(data)
+        if data_len > 1 and data_len != self.N:
             logger.warning(
-                ('Data in added sensor {:s} is not the same '
-                 'length as the rest of the data').format(key)
+                ('Data in added sensor `{:s}` is not a scalar or the same '
+                 'length as the array data').format(sensor_name)
             )
             return
-        data = sensor_particle.pop('data')
-        self._data = np.append(self._data, data.reshape((self.N, 1)), axis=1)
-        self.sensors[key] = sensor_particle
-        self._sensor_names.append(key)
+
+        sensor_particle = {
+            'sensor_name': sensor_name,
+            'attrs': attrs,
+        }
+
+        if isinstance(data, np.ndarray) and data.shape == (
+                self.N,):
+            self._data = np.append(
+                self._data, data.reshape((self.N, 1)), axis=1)
+            self._array_names.append(sensor_name)
+            idx = self._array_names.index(sensor_name)
+            sensor_particle['index'] = idx
+            self.sensors[sensor_name] = sensor_particle
+        else:
+            sensor_particle['data'] = data
+            self.sensors[sensor_name] = sensor_particle
 
     def getdata(self, item):
-        if item in self._sensor_names:
-            idx = self._sensor_names.index(item)
-            return self._data[:, idx]
+        if item in self.sensors:
+            if 'index' in self.sensors[item]:
+                idx = self.sensors[item]['index']
+                return self._data[:, idx]
+            elif 'data' in self.sensors[item]:
+                return self.sensors[item]['data']
         else:
-            raise SensorError("Sensor {:s} is not available".format(item))
+            raise SensorError("Sensor `{:s}` is not available".format(item))
 
     def getdataslice(self, items):
         if isinstance(items, str):
             items = [items]
         idxs = []
         for item in items:
-            if item in self._sensor_names:
-                idx = self._sensor_names.index(item)
-                idxs.append(idx)
+            if item in self.sensors:
+                if 'index' in self.sensors[item]:
+                    idx = self.sensors[item]['index']
+                    idxs.append(idx)
             else:
-                raise SensorError("Sensor {:s} is not available".format(item))
-        if len(idxs) == 1:
-            idxs = idxs[0]
+                logger.warning(
+                    "`{:s}` is not an array variable, skipping".format(item))
+        if len(idxs) == 0:
+            raise SensorError(
+                "No Sensor found from list of sensors given")
+        elif len(idxs) == 1:
+            idxs = idxs[0]  # this ensures a 1d array rather than a 1 column 2d
         return self._data[:, idxs]
 
     def update_data(self, items, row_indices, values):
         row_indices = np.atleast_1d(row_indices)
         col_idxs = []
         for item in items:
-            if item in self._sensor_names:
-                idx = self._sensor_names.index(item)
+            if item in self._array_names:
+                idx = self._array_names.index(item)
                 col_idxs.append(idx)
             else:
                 raise SensorError("Sensor {:s} is not available".format(item))
@@ -166,10 +197,11 @@ class GliderData(object):
         self._data[row_indices.reshape(len(row_indices), 1), col_idxs] = values
 
     def _get_dataparticle(self, item):
-        if item in self._sensor_names:
+        if item in self.sensors:
             data_particle = self.sensors[item].copy()
-            idx = self._sensor_names.index(item)
-            data_particle['data'] = self._data[:, idx]
+            if 'data' not in data_particle:
+                idx = self._array_names.index(item)
+                data_particle['data'] = self._data[:, idx]
             return_item = data_particle
         else:
             # return_item = None
@@ -186,9 +218,9 @@ class GliderData(object):
             col_inds = []
             for sensor in sensors:
                 sensor_defs[sensor] = self.sensors[sensor].copy()
-                col_inds.append(self._sensor_names.index(sensor))
+                col_inds.append(self._array_names.index(sensor))
         else:
-            sensor_names = self._sensor_names.copy()
+            sensor_names = self._array_names.copy()
             sensor_defs = self.sensors.copy()
             col_inds = slice(None)
 

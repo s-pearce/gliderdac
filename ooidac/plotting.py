@@ -8,7 +8,7 @@ import matplotlib.dates as mdates
 from configuration import PROC_LON_VAR, PROC_LAT_VAR, PROC_PRES_VAR, PROC_TIME_VAR
 from configuration import CONDUCTIVITY_SENSOR, TEMPERATURE_SENSOR, DEPTH_SENSOR
 from configuration import PRESSURE_SENSOR
-import ooidac.processing as process_dba
+import ooidac.processing.__init__ as process_dba
 from ooidac.data_classes import DbaData
 from ooidac.profiles import Profiles
 

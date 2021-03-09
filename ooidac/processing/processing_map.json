@@ -1,0 +1,84 @@
+[  // obviously not finished.  Change and inspect all
+  {
+    "nc_output": "time",
+    "source_sensor": "m_present_time"
+  },
+  {
+    "nc_output": "pressure",
+    //"module": "C:/Users/spearce/data/dac_v2/processing_test/fluorometer.py",
+    "function": "process_pressure",
+    "data_args": {
+      "pressure_arg": "sci_water_pressure"
+    },
+    "param_args": {}
+  },
+  {
+    "nc_output": "depth",
+    //"module": "C:/Users/spearce/data/dac_v2/processing_test/fluorometer.py",
+    "function": "process_depth",
+    "data_args": {
+      "depth_arg": "pressure"
+    },
+    "param_args": {}
+  },
+  {
+    "nc_output": ["lat", "lon"],
+    //"module": "C:/Users/spearce/data/dac_v2/processing_test/fluorometer.py",
+    "function": "process_lat_lon",
+    "data_args": {
+      "lat_arg": "m_gps_lat",
+      "lon_arg": "m_gps_lon"
+    },
+    "param_args": {}
+  },
+  {
+    "nc_output": "conductivity",
+    "source_sensor" : "sci_water_cond"
+  },
+  {
+    "nc_output": "temperature",
+    "source_sensor" : "sci_water_temp"
+  },
+  {
+    "nc_output": "salinity",
+    //"module": "C:/Users/spearce/data/dac_v2/processing_test/fluorometer.py",
+    "function": "calculate_practical_salinity",
+    "data_args": {
+      "conductivity": "sci_water_cond",
+      "temperature": "sci_water_temp",
+      "pressure": "sci_water_pressure"
+    },
+    "param_args":{}
+  },
+  {
+    "nc_output": "density",
+    //"module": "C:/Users/spearce/data/dac_v2/processing_test/fluorometer.py",
+    "function": "calculate_density",
+    "data_args": {
+      "temperature": "temperature",
+      "pressure": "pressure",
+      "salinity": "salinity",
+      "latitude": "latitude",
+      "longitude": "longitude"
+    },
+    "param_args":{}
+  },
+  {
+    "nc_output": "backscatter",
+    "module": "C:/Users/spearce/data/dac_v2/processing_test/fluorometer.py",
+    "function": "glider_eco_backscatter",
+    "data_args": {
+      "beta": "sci_flbbcd_bb_units",
+      "times": "m_present_time",
+      "temp": "sci_water_temp",
+      "salt": "salinity"
+    },
+    "param_args":{
+      "wlngth": 700.0,
+      "theta": 124.0,
+      "xfactor": 1.076
+    }
+  }
+]
+
+

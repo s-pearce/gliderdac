@@ -14,10 +14,10 @@ from ooidac.writers.netCDFwriter import NetCDFWriter
 from ooidac.constants import NETCDF_FORMATS, LLAT_SENSORS
 from ooidac.validate import validate_sensors, validate_ngdac_var_names
 
-import ooidac.processing as processing
+from ooidac import processing
 from ooidac.data_classes import DbaData
 from ooidac.profiles import Profiles
-from ooidac.data_checks import check_file_goodness, check_for_dav_sensors
+from ooidac.data_checks import check_file_goodness
 from ooidac.constants import SCI_CTD_SENSORS
 from dba_file_sorter import sort_function
 
@@ -150,6 +150,7 @@ def main(args):
         if "processing" in ncw.config_sensor_defs[var_defs]:
             var_processing[var_defs] = ncw.config_sensor_defs[var_defs].pop(
                 "processing")
+    var_processing = processing.init_processing_dict(var_processing)
 
     for dba_file in dba_files:
         # change to non-indented log format (see above)
@@ -218,13 +219,15 @@ def main(args):
         if dba is None:
             continue
 
-        # Convert m_pitch and m_roll variables to degrees, and add back to
-        # the data instance with metadata attributes
-        if 'm_pitch' in dba.sensor_names and 'm_roll' in dba.sensor_names:
-            dba = processing.pitch_and_roll(dba)
-            if dba is None:
-                continue
+        # # --------Pitch and Roll---------------#
+        # # Convert m_pitch and m_roll variables to degrees, and add back to
+        # # the data instance with metadata attributes
+        # if 'm_pitch' in dba.sensor_names and 'm_roll' in dba.sensor_names:
+        #     dba = processing.pitch_and_roll(dba)
+        #     if dba is None:
+        #         continue
 
+        # --------CTD Processing-----------------#
         # Convert `sci_water_cond/temp/ & pressure` to `salinity` and `density`
         # and adds them back to the data instance with metadata attributes.
         # Requires `llat_latitude/longitude` variables are in the data
@@ -233,93 +236,103 @@ def main(args):
         if dba is None:
             continue
 
-        # Process `sci_oxy4_oxygen` to OOI L2 compensated for salinity and
-        # pressure and converted to umol/kg.
-        if 'corrected_oxygen' in ncw.config_sensor_defs:
-            dba = processing.check_and_recalc_o2(
-                dba,
-                calc_type=var_processing['corrected_oxygen'][
-                    'calculation_type'],
-                cal_dict=var_processing['corrected_oxygen']['cal_coefs']
-            )
-            dba = processing.o2_s_and_p_comp(dba, 'temp_corrected_oxygen')
-            oxy = dba['oxygen']
-            oxy['sensor_name'] = 'corrected_oxygen'
-            dba['corrected_oxygen'] = oxy
-        elif 'sci_oxy4_oxygen' in dba.sensor_names:
-            dba = processing.o2_s_and_p_comp(dba)
-            if dba is None:
-                continue
+        # # --------Oxygen Processing------------#
+        # # Process `sci_oxy4_oxygen` to OOI L2 compensated for salinity and
+        # # pressure and converted to umol/kg.
+        # if 'corrected_oxygen' in ncw.config_sensor_defs:
+        #     dba = processing.check_and_recalc_o2(
+        #         dba,
+        #         calc_type=var_processing['corrected_oxygen'][
+        #             'calculation_type'],
+        #         cal_dict=var_processing['corrected_oxygen']['cal_coefs']
+        #     )
+        #     dba = processing.o2_s_and_p_comp(dba, 'corrected_oxygen')
+        # elif 'sci_oxy4_oxygen' in dba.sensor_names:
+        #     dba = processing.o2_s_and_p_comp(dba)
+        #     if dba is None:
+        #         continue
 
-        # Re_calculate chlorophyll
-        if 'corrected_chlor' in ncw.config_sensor_defs:
-            dba = processing.recalc_chlor(
-                dba, **var_processing['corrected_chlor']
-                # dark_offset=corrections['corrected_chlor']['dark_offset'],
-                # scale_factor=corrections['corrected_chlor']['scale_factor']
-            )
-            if dba is None:
-                continue
+        # # --------Chlorophyll Processing-------#
+        # # Re_calculate chlorophyll
+        # if 'corrected_chlor' in ncw.config_sensor_defs:
+        #     dba = processing.recalc_chlor(
+        #         dba, **var_processing['corrected_chlor']
+        #         # dark_offset=corrections['corrected_chlor']['dark_offset'],
+        #         # scale_factor=corrections['corrected_chlor']['scale_factor']
+        #     )
+        #     if dba is None:
+        #         continue
 
-        # Re_calculate PAR
-        if 'corrected_par' in ncw.config_sensor_defs:
-            # par_sensor_dark = corrections['corrected_par']['sensor_dark']
-            # par_sf = corrections['corrected_par']['scale_factor']
-            dba = processing.recalc_par(
-                dba, **var_processing['corrected_par']
-                # sensor_dark=par_sensor_dark,
-                # scale_factor=par_sf
-            )
-            if dba is None:
-                continue
+        # ---------General Processing------------#
+        if var_processing:
+            for var in var_processing:
+                dba = processing.process_and_add(dba, var, var_processing[var])
+                if dba is None:
+                    continue
 
-        bksctr_vars = [x for x in ncw.config_sensor_defs if 'backscatter' in x]
-        for var_name in bksctr_vars:
-            if var_name in var_processing:
-                bksctr_args = var_processing[var_name]
-                assert "source_sensor" in bksctr_args, (
-                    'In the "processing" dictionary for variable "{:s}" in '
-                    'sensor_defs.json, a "source_sensor" field must be present '
-                    'with the glider sensor name to use for '
-                    'processing.'.format(var_name)
-                )
-                bb_sensor = bksctr_args.pop('source_sensor')
+        # # --------PAR Processing---------------#
+        # # Re_calculate PAR
+        # if 'corrected_par' in ncw.config_sensor_defs:
+        #     # par_sensor_dark = corrections['corrected_par']['sensor_dark']
+        #     # par_sf = corrections['corrected_par']['scale_factor']
+        #     dba = processing.recalc_par(
+        #         dba, **var_processing['corrected_par']
+        #         # sensor_dark=par_sensor_dark,
+        #         # scale_factor=par_sf
+        #     )
+        #     if dba is None:
+        #         continue
 
-            else:
-                # for now assume we are using flbbcds with 700 nm wavelength as
-                # the default, the input values to the backscatter_total
-                # function also default to the flbbcd values.
-                bksctr_args = {}
-                wavelength = 700.0
-                bb_sensor = 'sci_flbbcd_bb_units'
+        # # --------Backscatter Processing-------#
+        # bksctr_vars = [
+        #     var for var in ncw.config_sensor_defs if 'backscatter' in var]
+        # for var_name in bksctr_vars:
+        #     if var_name in var_processing:
+        #         bksctr_args = var_processing[var_name]
+        #         assert "source_sensor" in bksctr_args, (
+        #             'In the "processing" dictionary for variable "{:s}" in '
+        #             'sensor_defs.json, a "source_sensor" field must be present '
+        #             'with the glider sensor name to use for '
+        #             'processing.'.format(var_name)
+        #         )
+        #         bb_sensor = bksctr_args.pop('source_sensor')
+        #
+        #     else:
+        #         # for now assume we are using flbbcds with 700 nm wavelength
+        #         # as the default, the input values to the backscatter_total
+        #         # function also default to the flbbcd values.
+        #         bksctr_args = {}
+        #         wavelength = 700.0
+        #         bb_sensor = 'sci_flbbcd_bb_units'
+        #
+        #     dba = processing.backscatter_total(
+        #         dba, bb_sensor, var_name, **bksctr_args)
+        #     if dba is None:
+        #         continue
 
-            dba = processing.backscatter_total(
-                dba, bb_sensor, var_name, **bksctr_args)
-            if dba is None:
-                continue
-
-        # Add radiation wavelength variables as a paired variable to
-        # the backscatter variables
-        # if wavelength is not present, assume FLBB 700 nm
-        # Note: this will likely change in the future to only include
-        #   'radiation_wavelength' as an attribute to the backscatter variable.
-        #   It is too much to have a variable for each if there are multiple
-        #   backscatter variables.  Although the future release will control if
-        #   you want it to be a variable or not just by the processing
-        #   dictionary
-        rw_vars = [x for x in ncw.config_sensor_defs
-                   if 'radiation_wavelength' in x]
-        for rw_var in rw_vars:
-            sdef = ncw.config_sensor_defs[rw_var]
-            if 'radiation_wavelength' in sdef['attrs']:
-                wl = sdef['attrs']['radiation_wavelength']
-            else:
-                wl = 700.0
-            radiation_wavelength = {
-                'data': wl,
-                'attrs': {'units': 'nm'},
-                'nc_var_name': rw_var}
-            scalars.append(radiation_wavelength)
+        # #--------Radiation Wavelength Variable-#
+        # # Add radiation wavelength variables as a paired variable to
+        # # the backscatter variables
+        # # if wavelength is not present, assume FLBB 700 nm
+        # # Note: this will likely change in the future to only include
+        # #   'radiation_wavelength' as an attribute to the backscatter variable.
+        # #   It is too much to have a variable for each if there are multiple
+        # #   backscatter variables.  Although the future release will control if
+        # #   you want it to be a variable or not just by the processing
+        # #   dictionary
+        # rw_vars = [x for x in ncw.config_sensor_defs
+        #            if 'radiation_wavelength' in x]
+        # for rw_var in rw_vars:
+        #     sdef = ncw.config_sensor_defs[rw_var]
+        #     if 'radiation_wavelength' in sdef['attrs']:
+        #         wl = sdef['attrs']['radiation_wavelength']
+        #     else:
+        #         wl = 700.0
+        #     radiation_wavelength = {
+        #         'data': wl,
+        #         'attrs': {'units': 'nm'},
+        #         'nc_var_name': rw_var}
+        #     scalars.append(radiation_wavelength)
 
         # If Depth Averaged Velocity (DAV) data available, (i.e. any of the
         # `*_water_vx/vy` sensors are in the data) get the values and calculate

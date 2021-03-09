@@ -2,12 +2,110 @@
 """
 @package pyseas.data.flo_functions
 @file pyseas/data/flo_functions.py
-@author Christopher Wingard, Craig Risien, Russell Desiderio
+@author Christopher Wingard, Craig Risien, Russell Desiderio, Stuart Pearce
 @brief Module containing Fluorometer Three Wavelength (FLORT) and Fluorometer
     Two Wavelength (FLORD) instrument family related functions
 """
 import numpy as np
 import numexpr as ne
+
+
+def glider_eco_backscatter_from_counts(
+        counts, offset, scale_factor,
+        times, temp, salt, wlngth, theta, xfactor):
+    """ECO puck Backscatter on a Slocum glider from signal counts
+
+    :param counts: array [counts]
+        Raw counts for backscatter from the ECO instrument. '*_bb_sig' in the
+        Slocum glider variable names.
+    :param offset: float [counts]
+        The "dark counts" or "clean water offset" calibration value from either
+        the instrument's Calibration Certificate or measured.
+    :param scale_factor: float [m-1 sr-1 / count]
+        The "scale factor" calibration value from the instrument's Calibration
+        Certificate.
+    :param times: array [seconds since 1970-01-01]
+        The raw glider timestamp values associated with all inputs the same
+        size as `beta`
+    :param temp: array [degrees C]
+        The CTD temperature `[sci|m]_water_temp` which may not share all the
+        same timestamps as `beta`, but will be linearly interpolated to
+        `beta`s timestamps.
+    :param salt: array [psu]
+        The CTD salinity previously calculated from the glider's CTD
+        parameters which may not share all the same timestamps as `beta`, but
+        will be linearly interpolated to `beta`s timestamps.
+    :param wlngth: float [nm]
+        Wavelength. The wavelength used for backscatter measurements.
+    :param theta: float [degrees]
+        Effective (centroid) optical backscatter scattering angle [degrees].
+        which is a function of the sensor geometry of the measuring instrument.
+        See Notes from function `flo_bback_total`.
+    :param xfactor: float
+        Chi-factor which scales the particulate scattering value at a particular
+        backwards angle to the total particulate backscattering coefficient
+        integrated over all backwards angles. See Notes from function
+        `flo_bback_total`.
+    :return: array
+        backscatter in [m-1]
+    """
+    beta = flo_scale_and_offset(counts, offset, scale_factor)
+    bb = glider_eco_backscatter(beta, times, temp, salt, wlngth, theta, xfactor)
+    return bb
+
+
+def glider_eco_backscatter(beta, times, temp, salt, wlngth, theta, xfactor):
+    """ECO puck Backscatter on a Slocum glider from `beta`
+
+    :param beta: array [nodim according to glider, but [m-1 sr-1] from manual]
+        The output values from the ECO puck backscatter measurement
+        `sci_flbbcd_bb_units`.
+    :param times: array [seconds since 1970-01-01]
+        The raw glider timestamp values associated with all inputs the same
+        size as `beta`
+    :param temp: array [degrees C]
+        The CTD temperature `[sci|m]_water_temp` which may not share all the
+        same timestamps as `beta`, but will be linearly interpolated to
+        `beta`s timestamps.
+    :param salt: array [psu]
+        The CTD salinity previously calculated from the glider's CTD
+        parameters which may not share all the same timestamps as `beta`, but
+        will be linearly interpolated to `beta`s timestamps.
+    :param wlngth: float [nm]
+        Wavelength. The wavelength used for backscatter measurements.
+    :param theta: float [degrees]
+        Effective (centroid) optical backscatter scattering angle [degrees].
+        which is a function of the sensor geometry of the measuring instrument.
+        See Notes from function `flo_bback_total`.
+    :param xfactor: float
+        Chi-factor which scales the particulate scattering value at a particular
+        backwards angle to the total particulate backscattering coefficient
+        integrated over all backwards angles. See Notes from function
+        `flo_bback_total`.
+    :return: array
+        backscatter in [m-1]
+    """
+    # create an empty container for backscatter to fill at the end
+    bscatter = np.full_like(beta, np.nan)
+    # Need to get non-NaN indexes for the interpolation to work properly
+    beta_ii = np.isfinite(beta)
+    beta_ts = times[beta_ii]  # beta timestamps
+
+    # reduce to all non-NaN values
+    beta = beta[beta_ii]
+
+    # interpolate temperature and salinity to beta timestamps (bts)
+    temp_bts = np.interp(
+        beta_ts, times[np.isfinite(temp)], temp[np.isfinite(temp)])
+    salt_bts = np.interp(
+        beta_ts, times[np.isfinite(salt)], salt[np.isfinite(salt)])
+
+    # calculate backscatter
+    bback = flo_bback_total(beta, temp_bts, salt_bts, theta, wlngth,
+                            xfactor)
+    # fill out to original length array with NaNs in the same places as `beta`
+    bscatter[beta_ii] = bback
+    return bscatter
 
 
 def flo_bback_total(beta, degC, psu, theta, wlngth, xfactor):
@@ -362,16 +460,18 @@ def flo_density_seawater(degC, psu):
     return rho_sw
 
 
-def flo_scale_and_offset(counts_output, counts_dark, scale_factor):
+def flo_scale_and_offset(counts_output, offset, scale_factor):
     """
     Description:
 
         This scale and offset function is a simple numeric expression that can
-        be applied to the CHLAFLO, CDOMFLO, FLUBSCT data products
+        be applied to WETLabs/Seabird ECO Fluorometer and backscatter data
+        products
 
     Implemented by:
 
         2014-01-30: Craig Risien. Initial Code
+        2021-03-09: Stuart Pearce. Updated inputs for generic ECO Puck inputs
 
     Usage:
 
@@ -381,15 +481,17 @@ def flo_scale_and_offset(counts_output, counts_dark, scale_factor):
 
         value = output value
         counts_output = measured sample output [counts]
-        counts_dark = measured signal output of fluormeter in clean water with
-                      black tape over the detector [counts]
-        scale_factor = multiplier [units counts^-1]
+        offset = Dark Counts or Clean Water Offset. Signal output of fluormeter
+            in clean water with black tape over the detector.  Value from either
+            the instrument's Calibration Certificate or measured. [counts]
+        scale_factor = Multiplier value from either the instrument's Calibration
+            Certificate or measured. [units counts^-1]
 
     References:
 
         N/A
     """
-    value = (counts_output - counts_dark) * scale_factor
+    value = (counts_output - offset) * scale_factor
     return value
 
 

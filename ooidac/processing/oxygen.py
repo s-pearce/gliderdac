@@ -535,7 +535,7 @@ def do2_SVU(calphase, temp, csv, conc_coef=np.array([0.0, 1.0]), salt=0):
     return DO
 
 
-def do2_salinity_correction(DO, P, T, SP, lat, lon, pref=0):
+def do2_salinity_correction(DO, P, T, SP, lat, lon, sref=0.0, pref=0):
     """
     Description:
 
@@ -545,7 +545,7 @@ def do2_salinity_correction(DO, P, T, SP, lat, lon, pref=0):
 
     Usage:
 
-        DOc = do2_salinity_correction(DO,P,T,SP,lat,lon, pref=0)
+        DOc = do2_salinity_correction(DO,P,T,SP,lat,lon, sref=0, pref=0)
 
             where
 
@@ -560,6 +560,9 @@ def do2_salinity_correction(DO, P, T, SP, lat, lon, pref=0):
         SP = PRACSAL practical salinity [unitless]. (see
             1341-00040_Data_Product_Spec_PRACSAL)
         lat, lon = latitude and longitude of the instrument [degrees].
+        sref = preset salinity as configured in the Optode's internal
+            configuration settings during the measurements.
+            The default is 0 ppt.
         pref = pressure reference level for potential density [dbar].
             The default is 0 dbar.
 
@@ -570,8 +573,9 @@ def do2_salinity_correction(DO, P, T, SP, lat, lon, pref=0):
         T = 1.97
         SP = 33.716000000000001
         lat,lon = -52.82, 87.64
+        sref = 0
 
-        DOc = do2_salinity_correction(DO,P,T,SP,lat,lon, pref=0)
+        DOc = do2_salinity_correction(DO,P,T,SP,lat,lon, sref=sref)
         print DO
         > 335.967894709
 
@@ -603,7 +607,7 @@ def do2_salinity_correction(DO, P, T, SP, lat, lon, pref=0):
     DO = (1 + (0.032*P)/1000) * DO
 
     # Salinity correction (Garcia and Gordon, 1992, combined fit):
-    S0 = 0
+    S0 = sref
     ts = np.log((298.15-T)/(273.15+T))
     B0 = -6.24097e-3
     B1 = -6.93498e-3
@@ -613,3 +617,58 @@ def do2_salinity_correction(DO, P, T, SP, lat, lon, pref=0):
     Bts = B0 + B1*ts + B2*ts**2 + B3*ts**3
     DO = np.exp((SP-S0)*Bts + C0*(SP**2-S0**2)) * DO
     return DO
+
+
+def aligned_salinity_correction(
+        molar_doxy, timestamps, ctd_pres, ctd_temp, ctd_sp, lat, lon, sref=0.0):
+    """Compensate dissolved oxygen for aligned salinity and pressure and convert
+    to micro-moles/kg
+
+    Aligns CTD measurment values to the same timestamps as the
+    oxygen measurements via interpolation and then compensate for salinity
+    and pressure measured from the CTD. Converts the units from
+    micro-moles/mL to micro-moles/kg using potential density measured from
+    the co-located CTD values.  This assumes a data format where the
+    timestamps given are the same length as the arrays for oxygen and the
+    CTD, but each array has nans as fill values and the finite values for
+    each instrument type are not necessarily aligned.
+
+    :param molar_doxy:
+    :param timestamps:
+    :param ctd_pres: CTD Pressure [dbar]
+    :param ctd_temp:
+    :param ctd_sp:
+    :param lat:
+    :param lon:
+    :param sref: preset salinity in the optode's configuration.  Default = 0.0.
+    :return:
+    """
+    # for interpolation to work, I need the non-NaN values from oxygen and CTD
+    oxy_ii = np.flatnonzero(np.isfinite(molar_doxy))
+    ctd_ii = np.flatnonzero(np.isfinite(ctd_pres))
+    # this assumes that pressure, temperature, and conductivity will all be on
+    # the same timestamps from the CTD.
+
+    # create timestamps for each
+    oxytime = timestamps[oxy_ii]
+    ctdtime = timestamps[ctd_ii]
+
+    # interpolate CTD and positions to the same timestamps as oxygen
+    press_oxyt = np.interp(oxytime, ctdtime, ctd_pres[ctd_ii])
+    ctd_temp_oxyt = np.interp(oxytime, ctdtime, ctd_temp[ctd_ii])
+    sp_oxyt = np.interp(oxytime, ctdtime, ctd_sp[ctd_ii])
+    # assumes lats and lons already exist at oxygen timestamps (may have been
+    # interpolated).
+    lat_oxyt = lat[oxy_ii]
+    lon_oxyt = lon[oxy_ii]
+
+    # compensate for salinity and pressure
+    doxy = do2_salinity_correction(
+        molar_doxy[oxy_ii], press_oxyt, ctd_temp_oxyt, sp_oxyt,
+        lat_oxyt, lon_oxyt, sref=sref)
+
+    # put doxy back to same data length array as input with nan fill values
+    doxy_out = np.full_like(molar_doxy, np.nan)
+    doxy_out[oxy_ii] = doxy
+
+    return doxy_out

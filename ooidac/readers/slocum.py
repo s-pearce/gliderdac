@@ -17,6 +17,8 @@ def parse_dba(dba_file, fast=False):
 
     Args:
         dba_file: dba file to parse
+        fast: bool, default False
+            Faster parsing uses some assumptions to read a tiny bit faster.
 
     Returns: A dictionary containing the file metadata, sensor defintions
     and data
@@ -170,6 +172,7 @@ def _parse_dba_sensor_defs(fid):
                 'units': units[ii], 'bytes': int(datatype_bytes[ii]),
                 'source_sensor': sensors[ii], 'long_name': sensors[ii]
             },
+            'index': ii
         }
     return sensors, sensor_defs
 
@@ -196,30 +199,28 @@ def _load_dba_data(dba_file, num_header_lines=17):
 
 def _fast_load_dba_data(dba_file, num_header_lines=17):
 
-    # Use numpy.loadtxt to load the ascii table, skipping header rows and
-    # requiring a 2-D output array
+    t0 = time.time()
+    data = []
+    line_num = 1
     try:
-        t0 = time.time()
         # read each row of data & use np.array's ability to grab a
         # column of an array
-        data = []
-        # pdb.set_trace()
-        line_num = 1
         with open(dba_file, 'r') as dba_fid:
             for line in dba_fid.readlines():
                 if line_num > num_header_lines:
                     data.append(line.split())
                 line_num += 1
-        t1 = time.time()
-        elapsed_time = t1 - t0
-        logger.debug('DBD parsed in {:0.0f} seconds'.format(
-            elapsed_time))
-        data_array = np.array(
-            data, dtype=np.float)  # NOTE: this is an array of strings
+        # NOTE: `data` is a list of lists of strings, using `dtype` converts it
+        # to float64 array type for all variables
+        data_array = np.array(data, dtype=np.float64)
     except ValueError as e:
         logger.warning('Error parsing {:s} ascii data table: {:s}'.format(
             dba_file, e))
         return
+    t1 = time.time()
+    elapsed_time = t1 - t0
+    logger.debug('DBD parsed in {:0.0f} seconds'.format(
+        elapsed_time))
 
     return data_array
 

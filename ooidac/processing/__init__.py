@@ -1,17 +1,18 @@
-
+import sys
 import os
 import logging
 from copy import deepcopy
+import importlib
 import gsw
-import ooidac.gps as gps
 import numpy as np
-from ooidac.data_classes import DbaData
+
+import ooidac.gps as gps
+from ooidac.data_classes import DbaData, SensorError
 from ooidac.readers.slocum import parse_dba_header
-from ooidac.utilities import fwd_fill
-from ooidac.ctd import calculate_practical_salinity, calculate_density
-from ooidac.processing_dir.fluorometer import flo_bback_total, flo_beta
-from ooidac.processing_dir.oxygen_calculation import calc_o2, do2_SVU
-from configuration import SCITIMESENSOR
+from ooidac.processing.ctd import calculate_practical_salinity, calculate_density
+from ooidac.processing.fluorometer import flo_bback_total, flo_beta
+from ooidac.processing.oxygen import calc_o2, do2_SVU
+from configuration import SCITIMESENSOR, PROCESSING_DIR
 from ooidac.constants import (
     SLOCUM_TIMESTAMP_SENSORS,
     SLOCUM_PRESSURE_SENSORS,
@@ -78,16 +79,21 @@ def create_llat_sensors(
                 'No pressure sensor found for calculating depth')
 
     # Append the llat variables
-    dba.add_data(time_sensor)
+    dba.add_data(time_sensor['sensor_name'], time_sensor['data'],
+                 **time_sensor['attrs'])
 
     if pressure_sensor:
-        dba.add_data(pressure_sensor)
+        dba.add_data(pressure_sensor['sensor_name'], pressure_sensor['data'],
+                     **pressure_sensor['attrs'])
 
-    dba.add_data(depth_sensor)
+    dba.add_data(depth_sensor['sensor_name'], depth_sensor['data'],
+                 **depth_sensor['attrs'])
 
-    dba.add_data(lat_sensor)
+    dba.add_data(lat_sensor['sensor_name'], lat_sensor['data'],
+                 **lat_sensor['attrs'])
 
-    dba.add_data(lon_sensor)
+    dba.add_data(lon_sensor['sensor_name'], lon_sensor['data'],
+                 **lon_sensor['attrs'])
 
     return dba
 
@@ -264,45 +270,6 @@ def _autochoose(dba, sensorlist, sensortype):
                 sensortype, dba.file_metadata['source_file'])
         )
     return sensor
-
-
-def pitch_and_roll(dba, fill='fwd fill'):
-    """adds new sensors `pitch` and `roll` to a GliderData instance from
-    `m_pitch` and `m_roll` converted to degrees from radians.
-
-    :param dba:  A GliderData or DbaData instance
-    :param fill:
-    :return: dba:  The same GliderData instance with `pitch` and `roll` added
-    """
-    if fill == 'fwd fill':
-        fill_function = fwd_fill
-    elif fill == 'interp':
-        def fill_function(param):
-            filled_param = np.interp(
-                dba.ts, dba.ts[np.isfinite(param)], param[np.isfinite(param)])
-            return filled_param
-    else:
-        def fill_function(param):
-            return param
-
-    pitch = dba['m_pitch']
-    pitch['sensor_name'] = 'pitch'
-    pitch['attrs']['units'] = 'degrees'
-    pitch['attrs']['comment'] = (
-        'm_pitch converted to degrees and forward filled')
-    pitch['data'] = fill_function(np.degrees(pitch['data']))
-
-    roll = dba['m_roll']
-    roll['sensor_name'] = 'roll'
-    roll['attrs']['units'] = 'degrees'
-    roll['attrs']['comment'] = (
-        'm_roll converted to degrees and forward filled')
-    roll['data'] = fwd_fill(np.degrees(roll['data']))
-
-    dba.add_data(pitch)
-    dba.add_data(roll)
-
-    return dba
 
 
 # TODO: Build a sensor defs (or separate attributes classes) that clearly
@@ -650,7 +617,9 @@ def backscatter_total(gldata, src_sensor, var_name, **kwargs):
     backscatter_particle['sensor_name'] = var_name
     backscatter_particle['attrs']['units'] = 'm-1'
 
-    gldata.add_data(backscatter_particle)
+    gldata.add_data(backscatter_particle['sensor_name'],
+                    backscatter_particle['data'],
+                    **backscatter_particle['attrs'])
     return gldata
 
 
@@ -729,10 +698,6 @@ def recalc_chlor(dba, dark_offset, scale_factor):
         # code will not continue with the rest of the potentially good data, so
         # this should return `corrected_chlor` full of nans since it can not be
         # corrected
-        nanchlor = deepcopy(dba['sci_flbbcd_chlor_units'])
-        nanchlor['sensor_name'] = "corrected_chlor"
-        nanchlor['data'] = np.full(len(dba), np.nan)
-        dba.add_data(nanchlor)
         return _add_nan_variable(
                 dba, "corrected_chlor", "sci_flbbcd_chlor_units")
     chlor_sig = dba.getdata('sci_flbbcd_chlor_sig')
@@ -743,7 +708,8 @@ def recalc_chlor(dba, dark_offset, scale_factor):
         "Chlorophyll recalculated from signal using calibration parameters")
     chlor_units['sensor_name'] = "corrected_chlor"
     chlor_units['attrs']['source_sensor'] = "sci_flbbcd_chlor_sig"
-    dba.add_data(chlor_units)
+    dba.add_data(chlor_units['sensor_name'], chlor_units['data'],
+                 **chlor_units['attrs'])
 
     return dba
 
@@ -777,7 +743,8 @@ def recalc_par(dba, sensor_dark, scale_factor):
         "PAR recalculated from signal using calibration parameters")
     par_units['sensor_name'] = "corrected_par"
     par_units['attrs']['source_sensor'] = "sci_bsipar_sensor_volts"
-    dba.add_data(par_units)
+    dba.add_data(par_units['sensor_name'], par_units['sensor_data'],
+                 **par_units['attrs'])
 
     return dba
 
@@ -831,7 +798,8 @@ def check_and_recalc_o2(dba, calc_type, cal_dict):
         "Oxygen recalculated from signal using calibration parameters")
     oxy_units['sensor_name'] = "temp_corrected_oxygen"
     oxy_units['attrs']['source_sensor'] = "sci_oxy4_calphase, sci_oxy4_temp"
-    dba.add_data(oxy_units)
+    dba.add_data(oxy_units['sensor_name'], oxy_units['data'],
+                 **oxy_units['attrs'])
 
     return dba
 
@@ -895,7 +863,7 @@ def o2_s_and_p_comp(dba, o2sensor='sci_oxy4_oxygen'):
         "Oxygen concentration has been compensated for salinity and "
         "pressure, but has not been corrected for the depth offset "
         "due to pitch of the glider and sensor offset from the CTD.")
-    dba.add_data(oxygen)
+    dba.add_data(oxygen['sensor_name'], oxygen['data'], **oxygen['attrs'])
 
     return dba
 
@@ -930,7 +898,8 @@ def replace_missing_sensors(gldata, available_sensors):
                     "source_sensor": sensor,
                     "long_name": sensor}
             }
-            gldata.add_data(new_sensor)
+            gldata.add_data(new_sensor['sensor_name'], new_sensor['data'],
+                            **new_sensor['attrs'])
     return gldata
 
 
@@ -953,5 +922,172 @@ def _add_nan_variable(gdata, variable_name, derived_variable=None):
         nanvar = {'attrs': {}}
     nanvar['sensor_name'] = variable_name
     nanvar['data'] = np.full(len(gdata), np.nan)
-    gdata.add_data(nanvar)
+    gdata.add_data(nanvar['sensor_name'], nanvar['data'],
+                   **nanvar['attrs'])
     return gdata
+
+
+def init_processing_func(func_dict):
+    """Import a generic processing function
+
+    """
+    module = func_dict['module']
+
+    # check if the module has path elements in it and separate those out.
+    # Check the paths exist if present.
+    if "\\" in module or "/" in module:
+        module_path = os.path.abspath(module)
+        assert os.path.exists(module_path), (
+            "Processing module {:s} not found".format(module_path))
+        module_dir = os.path.dirname(module_path)
+    elif 'module_dir' in func_dict:
+        module_dir = func_dict['module_dir']
+        assert os.path.isdir(module_dir), (
+            "Processing module directory {:s} not found".format(module_dir))
+    else:
+        module_dir = None
+
+    # if there were path elements in `module` and add the path to sys.path
+    # for importing if not already there
+    if module_dir and module_dir not in sys.path:
+        sys.path.append(module_dir)
+
+    # if there were path elements, these will remove them and do nothing if not.
+    module = os.path.basename(module)
+    modulename = module.replace('.py', '')
+
+    # import the module
+    try:
+        mod = importlib.import_module(modulename)
+    except ModuleNotFoundError:
+        logger.error(
+            "Processing Module from user input {:s} not found. Please "
+            "re-edit the processing step and try running "
+            "again.".format(modulename))
+        sys.exit(1)
+
+    # get the specific processing function to keep in the processing dictionary
+    func_name = func_dict['function']
+    try:
+        func = getattr(mod, func_name)
+    except AttributeError:
+        logger.error(
+            "Function {:s} not found in module {:s}. Please edit the processing"
+            " info and try running again.".format(func_name, modulename)
+        )
+        sys.exit()
+
+    func_dict['func'] = func
+    return func_dict
+
+
+def init_processing_dict(var_processing_dict):
+    """Initialize the processing dictionary by importing the generic functions
+    """
+
+    # pre-emptively insert the processing directory into the module search path
+    sys.path.insert(0, PROCESSING_DIR)
+
+    # each processing instruction block, import the function and store the
+    # function as an object in the processing dictionary
+    for var, func_dict in var_processing_dict.items():
+        func_dict['src_var_name'] = var
+        init_processing_func(func_dict)
+    return var_processing_dict
+
+
+def process_and_add(gldata, var_name, func_dict):
+    """Run any processing functions on the glider data
+
+    :param gldata: GliderData instance to add the processed variable to
+    :param var_name: string
+        Variable Name, the name of the variable that will be added to the
+        GliderData instance which will ultimately become a netCDF variable
+    :param func_dict:
+    :return: gdata: GliderData instance with new variable added
+    """
+
+    # func_dict = init_processing_func(func_dict)
+    func = func_dict['func']
+    func_name = func.__name__
+
+    # assemble the arguments from the func_dict
+    # first get the actual data arguments
+
+    try:
+        args = deepcopy(func_dict['data_args'])
+    except KeyError:
+        logger.error(
+            "Processing `{:s}` failed.\n"
+            "There MUST be a 'data_args' dictionary in the processing JSON "
+            "block that has at least one argument to the function {:s} "
+            "whose value is a variable name from the data file.".format(
+                var_name, func_name))
+        raise
+
+    for arg in args:
+        srcvarname = args[arg]
+        assert isinstance(srcvarname, str), (
+            "Arguments in the 'data_args' dictionary in the {:s} JSON "
+            "processing block must be a string variable name from the "
+            "glider source data".format(var_name))
+        try:
+            # return a deepcopy here to prevent a user provided function from
+            # accidentally changing the raw data
+            var = deepcopy(gldata.getdata(srcvarname))
+        except SensorError:
+            logger.error(
+                "During processing steps for `{:s}`, glider variable `{:s}` "
+                "could not be found in the data".format(var_name, srcvarname))
+            raise
+        else:
+            args[arg] = var
+    # then add any parameter arguments
+    if 'param_args' in func_dict:
+        args.update(func_dict['param_args'])
+
+    # noinspection PyBroadException
+    # ^ this turns off the Pycharm warning for using Exception as too broad
+    # ToDo: these logger error statements should be refactored to just change
+    #  the text in the error itself rather than logging, if you want to
+    #  capture the error in logging specifically (this program only outputs
+    #  the messages to stdout and stderr, so it is a moot point) then you can
+    #  use logger.exception instead (the moot point is that it would print
+    #  the error message twice to the screen.
+    try:
+        outvar = func(**args)
+    except TypeError:
+        logger.error(
+            "During processing for `{:s}`, the arguments for function "
+            "`{:s}` are incorrect. Check the inputs in the json processing "
+            "dictionary. See instructions/how_to_process.txt.".format(
+                var_name, func_name))
+        raise
+    except Exception:
+        logger.error(
+            "During processing for `{:s}`, the function `{:s}` failed. Test "
+            "the function and make sure that it returns an 1D numpy.array the "
+            "same length as the input data.".format(var_name, func_name)
+        )
+        raise
+
+    # ToDo: This section will not work if the function returns multiple
+    #  output variables, each the same length as the glider data
+    #  For now I want to complete this for processing, but in a future
+    #  implementation I want to tackle the challenging scenarios of multiple
+    #  outputs and processing from an already processed variable.
+
+    if len(outvar) != len(gldata):
+        error_msg = (
+            "The length of the output variable from the `{:s}`: `{:s}` "
+            "JSON processing block does not match the input data length"
+            "Test the processing function's output".format(var_name, func_name)
+        )
+        logging.error(error_msg)
+        raise ValueError(error_msg)
+
+    gldata.add_data(var_name, np.array(outvar))
+
+    # not complete yet.  need to account for the case of isinstance np.array
+    # where it is just one variable
+    return gldata

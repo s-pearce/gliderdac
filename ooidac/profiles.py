@@ -6,7 +6,7 @@ import os
 
 from ooidac import boxcar_smooth_dataset
 
-from ooidac.utilities import fwd_fill
+from ooidac.processing.general import fwd_fill
 from ooidac.processing import all_sci_indices
 import profile_filters
 # import pdb
