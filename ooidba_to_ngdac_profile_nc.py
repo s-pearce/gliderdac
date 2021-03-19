@@ -209,11 +209,11 @@ def main(args):
         # (designated by the prefix llat [lat, lon, altitude, time]) which are
         # created and added to the data instance with metadata attributes.
         # This step is required before the other processing module steps.  The
-        # variable llat_time is derived from `m_present_time`,
-        # llat_latitude/longitude are filled by linear interpolation from
-        # `m_gps_lat/lon`, llat_pressure is derived from converting
-        # `sci_water_pressure` to dbar, and llat_depth is derived from
-        # `llat_pressure` converted to depth using the Python TEOS-10 GSW
+        # `PROC_TIME_VAR` variable is derived from `m_present_time`,
+        # latitude/longitude are filled by linear interpolation from
+        # `m_gps_lat/lon`, `PROC_PRES_VAR` is derived from converting
+        # `sci_water_pressure` to dbar, and `PROC_DEPTH_VAR` is derived from
+        # `PROC_PRES_VAR` converted to depth using the Python TEOS-10 GSW
         # package
         dba = processing.create_llat_sensors(dba)
         if dba is None:
@@ -230,7 +230,7 @@ def main(args):
         # --------CTD Processing-----------------#
         # Convert `sci_water_cond/temp/ & pressure` to `salinity` and `density`
         # and adds them back to the data instance with metadata attributes.
-        # Requires `llat_latitude/longitude` variables are in the data
+        # Requires latitude/longitude variables are in the data
         # instance from the `create_llat_sensors` method
         dba = processing.ctd_data(dba, SCI_CTD_SENSORS)
         if dba is None:

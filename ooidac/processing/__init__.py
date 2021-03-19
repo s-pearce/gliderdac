@@ -12,7 +12,9 @@ from ooidac.readers.slocum import parse_dba_header
 from ooidac.processing.ctd import calculate_practical_salinity, calculate_density
 from ooidac.processing.fluorometer import flo_bback_total, flo_beta
 from ooidac.processing.oxygen import calc_o2, do2_SVU
-from configuration import SCITIMESENSOR, PROCESSING_DIR
+from configuration import SCITIMESENSOR, PROCESSING_DIR, PROC_DEPTH_VAR
+from configuration import PROC_PRES_VAR, PROC_LAT_VAR, PROC_LON_VAR
+from configuration import PROC_TIME_VAR, LAT_SENSOR, LON_SENSOR
 from ooidac.constants import (
     SLOCUM_TIMESTAMP_SENSORS,
     SLOCUM_PRESSURE_SENSORS,
@@ -54,8 +56,8 @@ def create_llat_sensors(
 
     lat_sensor, lon_sensor = lat_and_lon_coordinates(dba, time_sensor)
 
-    # If no depth_sensor was selected, use llat_latitude, llat_longitude
-    # and llat_pressure to calculate
+    # If no depth_sensor was selected, use PROC_LAT_VAR, PROC_LON_VAR
+    # and PROC_PRES_VAR to calculate
     if not depth_sensor or z_from_p:
         if pressure_sensor:
             logger.debug(
@@ -63,12 +65,12 @@ def create_llat_sensors(
                     pressure_sensor['attrs']['source_sensor']))
 
             depth_sensor = {
-                'sensor_name': 'llat_depth',
+                'sensor_name': PROC_DEPTH_VAR,
                 'attrs': {
-                    'source_sensor': 'llat_pressure,llat_latitude',
+                    'source_sensor': ",".join([PROC_PRES_VAR, PROC_LAT_VAR]),
                     'comment': (
-                        u'Calculated from llat_pressure and '
-                        u'llat_latitude using gsw.z_from_p'
+                        'Calculated from {:s} and {:s} using '
+                        'gsw.z_from_p'.format(PROC_PRES_VAR, PROC_LAT_VAR)
                     )
                 },
                 'data': -gsw.z_from_p(
@@ -118,7 +120,7 @@ def select_time_sensor(dba, timesensor=None):
     time_sensor = deepcopy(dba[timesensor])
     if not time_sensor:
         return
-    time_sensor['sensor_name'] = 'llat_time'
+    time_sensor['sensor_name'] = PROC_TIME_VAR
     time_sensor['attrs']['source_sensor'] = timesensor
     time_sensor['attrs']['comment'] = u'Alias for {:s}'.format(timesensor)
     time_sensor['attrs']['units'] = 'seconds since 1970-01-01 00:00:00Z'
@@ -156,7 +158,7 @@ def select_pressure_sensor(dba, pressuresensor=None):
     pressure_sensor = deepcopy(dba[pressuresensor])
     if not pressure_sensor:
         return
-    pressure_sensor['sensor_name'] = 'llat_pressure'
+    pressure_sensor['sensor_name'] = PROC_PRES_VAR
     pressure_sensor['attrs']['source_sensor'] = pressuresensor
     pressure_sensor['attrs']['comment'] = (
         u'Alias for {:s}, multiplied by 10 to convert from bar to dbar'.format(
@@ -194,7 +196,7 @@ def select_depth_sensor(dba, depthsensor=None):
     depth_sensor = deepcopy(dba[depthsensor])
     if not depth_sensor:
         return
-    depth_sensor['sensor_name'] = 'llat_depth'
+    depth_sensor['sensor_name'] = PROC_DEPTH_VAR
     depth_sensor['attrs']['source_sensor'] = depthsensor
     depth_sensor['attrs']['comment'] = u'Alias for {:s}'.format(depthsensor)
 
@@ -207,9 +209,9 @@ def select_depth_sensor(dba, depthsensor=None):
 def lat_and_lon_coordinates(dba, time_sensor):
     # Convert m_gps_lat to decimal degrees and create the new sensor
     # definition
-    lat_sensor = deepcopy(dba['m_gps_lat'])
-    lat_sensor['sensor_name'] = 'llat_latitude'
-    lat_sensor['attrs']['source_sensor'] = u'm_gps_lat'
+    lat_sensor = deepcopy(dba[LAT_SENSOR])
+    lat_sensor['sensor_name'] = PROC_LAT_VAR
+    lat_sensor['attrs']['source_sensor'] = LAT_SENSOR
 
     # Skip default values (69696969)
     # ToDo: fix this so it doesn't print a warning
@@ -224,9 +226,9 @@ def lat_and_lon_coordinates(dba, time_sensor):
 
     # Convert m_gps_lon to decimal degrees and create the new sensor
     # definition
-    lon_sensor = deepcopy(dba['m_gps_lon'])
-    lon_sensor['sensor_name'] = 'llat_longitude'
-    lon_sensor['attrs']['source_sensor'] = u'm_gps_lon'
+    lon_sensor = deepcopy(dba[LON_SENSOR])
+    lon_sensor['sensor_name'] = PROC_LON_VAR
+    lon_sensor['attrs']['source_sensor'] = LON_SENSOR
 
     # Skip default values (69696969)
     # ToDo: fix this so it doesn't print a warning
@@ -241,15 +243,15 @@ def lat_and_lon_coordinates(dba, time_sensor):
 
     logging.info('Filling lat and lon coordinates by interpolation '
                  'between GPS fixes')
-    # Interpolate llat_latitude and llat_longitude
+    # Interpolate latitude and longitude
     lat_sensor['data'], lon_sensor['data'] = gps.interpolate_gps(
         time_sensor['data'], lat_sensor['data'], lon_sensor['data']
     )
     lat_sensor['attrs']['comment'] = (
-        u'm_gps_lat converted to decimal degrees and interpolated'
+        '{:s} converted to decimal degrees and interpolated'.format(LAT_SENSOR)
     )
     lon_sensor['attrs']['comment'] = (
-        u'm_gps_lon converted to decimal degrees and interpolated'
+        '{:s} converted to decimal degrees and interpolated'.format(LON_SENSOR)
     )
 
     return lat_sensor, lon_sensor
@@ -286,9 +288,9 @@ def ctd_data(dba, ctd_sensors):
             return
 
     # if that didn't return, get the sensors needed
-    pres = dba['llat_pressure']
-    lat = dba['llat_latitude']
-    lon = dba['llat_longitude']
+    pres = dba[PROC_PRES_VAR]
+    lat = dba[PROC_LAT_VAR]
+    lon = dba[PROC_LON_VAR]
     temp = dba['sci_water_temp'] or dba['m_water_temp']
     cond = dba['sci_water_cond'] or dba['m_water_cond']
 
@@ -302,7 +304,7 @@ def ctd_data(dba, ctd_sensors):
             )
             return
 
-    # Calculate mean llat_latitude and mean llat_longitude
+    # Calculate mean latitude and mean longitude
     mean_lat = np.nanmean(lat['data'])
     mean_lon = np.nanmean(lon['data'])
 
@@ -479,8 +481,8 @@ def get_segment_time_and_pos(dba):
 
     a = dba.ts is None
     b = dba.underwater_indices is None or len(dba.underwater_indices) == 0
-    c = 'llat_latitude' not in dba.sensor_names
-    d = 'llat_longitude' not in dba.sensor_names
+    c = PROC_LAT_VAR not in dba.sensor_names
+    d = PROC_LON_VAR not in dba.sensor_names
     if a or b or c or d:
         return None, None, None
 
@@ -490,19 +492,19 @@ def get_segment_time_and_pos(dba):
     uw_start_time = dba.ts[dba.underwater_indices[0]]
     uw_end_time = dba.ts[dba.underwater_indices[-1]]
 
-    # borrow the sensor `llat_time`s attributes but change the data
+    # borrow the sensor `PROC_TIME_VAR`s attributes but change the data
     # to be the calculated scalar mean segment time value
     mean_segment_time = np.mean([uw_start_time, uw_end_time])
-    segment_time = dba['llat_time']
+    segment_time = dba[PROC_TIME_VAR]
     segment_time.pop('sensor_name')
     segment_time['data'] = mean_segment_time
     segment_time['nc_var_name'] = "time_uv"
 
-    # borrow the attributes from the `llat_` sensors and replace the 'data with
+    # borrow the attributes from the position sensors and replace the 'data with
     # scalar segment lat and lon
-    segment_lat = dba['llat_latitude']
+    segment_lat = dba[PROC_LAT_VAR]
     segment_lat.pop('sensor_name')
-    segment_lon = dba['llat_longitude']
+    segment_lon = dba[PROC_LON_VAR]
     segment_lon.pop('sensor_name')
     lat = segment_lat['data']
     lon = segment_lon['data']
@@ -714,41 +716,6 @@ def recalc_chlor(dba, dark_offset, scale_factor):
     return dba
 
 
-def recalc_par(dba, sensor_dark, scale_factor):
-    """ Recalculates PAR from the raw signal
-
-    :param dba: GliderData instance
-    :param sensor_dark: Dark Offset calibration parameter from the calibration
-        certificate
-    :param scale_factor: Appropriate units Wet Scale Factor calibration
-        parameter from the calibration certificate
-    :return: The GliderData instance with the new parameter added
-    """
-    if 'sci_bsipar_sensor_volts' not in dba.sensor_names:
-        logger.warning(
-            "sci_bsipar_sensor_volts is not present to recalculate PAR. "
-            "Filling with NaNs instead.")
-        # This needs to return a variable called `corrected_par` or else the
-        # code will not continue with the rest of the potentially good data, so
-        # this should return `corrected_par` full of nans since it can not be
-        # corrected
-        return _add_nan_variable(dba, "corrected_par", "sci_bsipar_par")
-    par_volts = dba.getdata('sci_bsipar_sensor_volts')
-    # remove the initialization where sensor volts == 0.0
-    par_volts[par_volts == 0.0] = np.nan
-    par_units = deepcopy(dba['sci_bsipar_par'])
-    new_par = (par_volts - sensor_dark) / scale_factor
-    par_units['data'] = new_par
-    par_units['attrs']['comment'] = (
-        "PAR recalculated from signal using calibration parameters")
-    par_units['sensor_name'] = "corrected_par"
-    par_units['attrs']['source_sensor'] = "sci_bsipar_sensor_volts"
-    dba.add_data(par_units['sensor_name'], par_units['sensor_data'],
-                 **par_units['attrs'])
-
-    return dba
-
-
 def check_and_recalc_o2(dba, calc_type, cal_dict):
     """ Checks the oxygen calculation and re-calculates from calphase if
     salinity was entered as 35 instead of 0 and uses the real gas constant if
@@ -811,11 +778,11 @@ def o2_s_and_p_comp(dba, o2sensor='sci_oxy4_oxygen'):
         )
         return dba
 
-    oxygen = dba[o2sensor]
-    oxy = oxygen['data'].copy()
+    o2data = dba[o2sensor]
+    oxy = o2data['data'].copy()
     timestamps = dba.getdata(SCITIMESENSOR)
     sp = dba.getdata('salinity')
-    p = dba.getdata('llat_pressure')
+    p = dba.getdata(PROC_PRES_VAR)
     t = dba.getdata('sci_water_temp')
 
     oxy_ii = np.isfinite(oxy)
@@ -826,8 +793,8 @@ def o2_s_and_p_comp(dba, o2sensor='sci_oxy4_oxygen'):
     p = np.interp(oxy_ts, timestamps[np.isfinite(p)], p[np.isfinite(p)])
     t = np.interp(oxy_ts, timestamps[np.isfinite(t)], t[np.isfinite(t)])
 
-    lon = dba.getdata('llat_longitude')[oxy_ii]  # should already be interp'ed
-    lat = dba.getdata('llat_latitude')[oxy_ii]
+    lon = dba.getdata(PROC_LON_VAR)[oxy_ii]  # should already be interp'ed
+    lat = dba.getdata(PROC_LAT_VAR)[oxy_ii]
 
     # density calculation from GSW toolbox
     sa = gsw.SA_from_SP(sp, p, lon, lat)
@@ -851,19 +818,19 @@ def o2_s_and_p_comp(dba, o2sensor='sci_oxy4_oxygen'):
     bts = b0 + b1*ts + b2*ts**2 + b3*ts**3
     do = np.exp((sp-s0)*bts + c0*(sp**2-s0**2)) * do
 
-    oxygen['sensor_name'] = 'oxygen'
-    oxygen['data'] = np.full(len(oxy_ii), np.nan)
-    oxygen['data'][oxy_ii] = do
-    oxygen['attrs']['units'] = "umol kg-1"
-    if 'comment' in oxygen['attrs']:
-        comment = oxygen['attrs']['comment'] + "; "
+    o2data['sensor_name'] = 'oxygen'
+    o2data['data'] = np.full(len(oxy_ii), np.nan)
+    o2data['data'][oxy_ii] = do
+    o2data['attrs']['units'] = "umol kg-1"
+    if 'comment' in o2data['attrs']:
+        comment = o2data['attrs']['comment'] + "; "
     else:
         comment = ''
-    oxygen['attrs']['comment'] = comment + (
+    o2data['attrs']['comment'] = comment + (
         "Oxygen concentration has been compensated for salinity and "
         "pressure, but has not been corrected for the depth offset "
         "due to pitch of the glider and sensor offset from the CTD.")
-    dba.add_data(oxygen['sensor_name'], oxygen['data'], **oxygen['attrs'])
+    dba.add_data(o2data['sensor_name'], o2data['data'], **o2data['attrs'])
 
     return dba
 

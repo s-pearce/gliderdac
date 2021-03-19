@@ -13,7 +13,7 @@ import os
 #  generic approach.  Only Slocum calls variables "sensors" EVERYone else
 #  calls them "variables"
 
-# raw glider sensor/variable names
+# raw glider sensor/variable names for the coordinate and default CTD variables
 TIMESENSOR = 'm_present_time'
 SCITIMESENSOR = 'sci_m_present_time'
 CONDUCTIVITY_SENSOR = 'sci_water_cond'
@@ -23,19 +23,26 @@ DEPTH_SENSOR = 'm_depth'
 LAT_SENSOR = "m_gps_lat"
 LON_SENSOR = "m_gps_lon"
 
-# processed sensor/variable names
-PROC_LAT_VAR = "llat_latitude"
-PROC_LON_VAR = "llat_longitude"
-PROC_TIME_VAR = "llat_time"
-PROC_PRES_VAR = "llat_pressure"
-PROC_DEPTH_VAR = "depth"
-
-# netCDF variable names
+# netCDF variable names for the coordinate variables
 NC_TIME_VAR = "time"
 NC_LON_VAR = "lon"
 NC_LAT_VAR = "lat"
 NC_PRES_VAR = "pressure"
 NC_DEPTH_VAR = "depth"
+
+# processed sensor/variable names for intermediate processed coordinate
+# variables
+# old: PROC_LAT_VAR = "llat_latitude"
+PROC_LAT_VAR = NC_LAT_VAR
+# old: PROC_LON_VAR = "llat_longitude"
+PROC_LON_VAR = NC_LON_VAR
+# old: PROC_TIME_VAR = "llat_time"
+PROC_TIME_VAR = NC_TIME_VAR
+# old: PROC_PRES_VAR = "llat_pressure"
+PROC_PRES_VAR = NC_PRES_VAR
+# old: PROC_DEPTH_VAR = "depth"
+PROC_DEPTH_VAR = NC_DEPTH_VAR
+
 
 REQUIRED_SENSORS = [
     SCITIMESENSOR, TIMESENSOR,

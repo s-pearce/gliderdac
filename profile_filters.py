@@ -5,7 +5,7 @@ import numpy as np
 import logging
 import os
 from ooidac import processing
-from configuration import DATA_CONFIG_LIST, TIMESENSOR
+from configuration import DATA_CONFIG_LIST, TIMESENSOR, PROC_PRES_VAR
 logger = logging.getLogger(os.path.basename(__name__))
 
 
@@ -174,7 +174,7 @@ def filter_small_data_depth_ratio(
     remove_profile = False
     depth = profile_data.depth
     total_profile_depth = np.nanmax(depth) - np.nanmin(depth)
-    pres = profile_data.getdata('llat_pressure')
+    pres = profile_data.getdata(PROC_PRES_VAR)
 
     if (
             np.count_nonzero(np.isfinite(pres)) > data_pts_threshold

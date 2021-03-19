@@ -13,6 +13,8 @@ from dateutil import parser
 from ooidac.constants import NETCDF_FORMATS, NC_FILL_VALUES
 from ooidac.constants import REQUIRED_SENSOR_DEFS_KEYS
 from ooidac.constants import CF_VARIABLE_ATTRIBUTES
+from configuration import PROC_LAT_VAR, PROC_LON_VAR, NC_LON_VAR, NC_LAT_VAR
+from configuration import NC_DEPTH_VAR, NC_TIME_VAR, NC_PRES_VAR, PROC_TIME_VAR
 import ooidac.readers.json_config as json_config
 
 
@@ -133,10 +135,10 @@ class NetCDFWriter(object):
         self._deployment_configs = self._attributes['deployment']
 
         # Required variable definitions
-        self._llat_vars = ['llat_time',
-                           'llat_depth',
-                           'llat_latitude',
-                           'llat_longitude']
+        self._llat_vars = [NC_TIME_VAR,
+                           NC_DEPTH_VAR,
+                           NC_LON_VAR,
+                           NC_LAT_VAR]
 
         # Output NetCDF file name
         self._out_nc = None
@@ -553,11 +555,13 @@ class NetCDFWriter(object):
         # Set the profile_id variable
         self.set_profile_var()
 
-        time_sensor_def = self.sensor_def_exists('llat_time')
+        # old: time_sensor_def = self.sensor_def_exists('llat_time')
+        time_sensor_def = self.sensor_def_exists(NC_TIME_VAR)
         if not time_sensor_def:
             self._logger.warning('Skipping creation of profile_time variable')
         else:
-            time_var_name = time_sensor_def['nc_var_name']
+            # old: time_var_name = time_sensor_def['nc_var_name']
+            time_var_name = NC_TIME_VAR
             if time_var_name in self._nc.variables:
                 self.set_scalar(
                     'profile_time',
@@ -570,17 +574,20 @@ class NetCDFWriter(object):
                 )
 
         # Longitude sensor definition
-        lon_sensor_def = self.sensor_def_exists('llat_longitude')
+        # old: lon_sensor_def = self.sensor_def_exists('llat_longitude')
+        lon_sensor_def = self.sensor_def_exists(NC_LON_VAR)
         # depth-average current longitude sensor definition
         lon_uv_sensor_def = self.sensor_def_exists('lon_uv')
         # Latitude sensor definition
-        lat_sensor_def = self.sensor_def_exists('llat_latitude')
+        # old: lat_sensor_def = self.sensor_def_exists('llat_latitude')
+        lat_sensor_def = self.sensor_def_exists(NC_LAT_VAR)
         # depth-averaged current latitude sensor definition
         lat_uv_sensor_def = self.sensor_def_exists('lat_uv')
         if not lon_sensor_def:
             self._logger.warning('Skipping creation of profile_lon')
         else:
-            lon_var_name = lon_sensor_def['nc_var_name']
+            # old: lon_var_name = lon_sensor_def['nc_var_name']
+            lon_var_name = NC_LON_VAR
             if lon_var_name in self._nc.variables:
                 mean_lon = np.nanmean(self._nc.variables[lon_var_name][:])
                 self.set_scalar('profile_lon', mean_lon)
@@ -602,7 +609,8 @@ class NetCDFWriter(object):
         if not lat_sensor_def:
             self._logger.warning('Skipping creation of profile_lat')
         else:
-            lat_var_name = lat_sensor_def['nc_var_name']
+            # old: lat_var_name = lat_sensor_def['nc_var_name']
+            lat_var_name = NC_LAT_VAR
             if lat_var_name in self._nc.variables:
                 mean_lat = np.nanmean(self._nc.variables[lat_var_name][:])
                 self.set_scalar('profile_lat', mean_lat)
@@ -652,18 +660,22 @@ class NetCDFWriter(object):
             if 'dimension' in self.nc_sensor_defs[sensor]
                and not self.nc_sensor_defs[sensor]['dimension']
         ]
+
         for container_variable in container_variables:
-            if 'nc_var_name' not in self._nc_sensor_defs[container_variable]:
-                self._logger.warning(
-                    '{:s} sensor definition does not contain an nc_var_name '
-                    'key'.format(container_variable)
-                )
-                continue
+            # old: and again redundant
+            # if 'nc_var_name' not in self._nc_sensor_defs[container_variable]:
+            #     self._logger.warning(
+            #         '{:s} sensor definition does not contain an nc_var_name '
+            #         'key'.format(container_variable)
+            #     )
+            #     continue
 
-            nc_var_name = self._nc_sensor_defs[
-                container_variable]['nc_var_name']
+            # old:
+            # nc_var_name = self._nc_sensor_defs[
+            #     container_variable]['nc_var_name']
 
-            if nc_var_name in self._nc.variables:
+            # old: if nc_var_name in self._nc.variables:
+            if container_variable in self._nc.variables:
                 continue
             elif 'attrs' not in self.nc_sensor_defs[container_variable]:
                 continue
@@ -673,7 +685,8 @@ class NetCDFWriter(object):
                     self.nc_sensor_defs[container_variable]['attrs'].items()):
                 if k.lower() == '_fillvalue' or k.lower() == 'missing_value':
                     continue
-                self._nc.variables[nc_var_name].setncattr(k, v)
+                # old: self._nc.variables[nc_var_name].setncattr(k, v)
+                self._nc.variables[container_variable].setncattr(k, v)
 
     def set_platform(self):
         """ Creates a variable that describes the glider
@@ -718,13 +731,15 @@ class NetCDFWriter(object):
         """
 
         # time_var_name = self.sensor_def_exists('drv_timestamp')
-        time_sensor_def = self.sensor_def_exists('llat_time')
+        # old: time_sensor_def = self.sensor_def_exists('llat_time')
+        time_sensor_def = self.sensor_def_exists(NC_TIME_VAR)
         if not time_sensor_def:
             self._logger.warning(
                 'Failed to set global time_coverage_start/end attributes')
             return
 
-        time_var_name = time_sensor_def['nc_var_name']
+        # old: time_var_name = time_sensor_def['nc_var_name']
+        time_var_name = NC_TIME_VAR
         min_timestamp = self._nc.variables[time_var_name][:].min()
         max_timestamp = self._nc.variables[time_var_name][:].max()
         try:
@@ -785,14 +800,18 @@ class NetCDFWriter(object):
         depth_resolution = " "
         polygon_wkt = u'POLYGON EMPTY'
 
-        lon_sensor_def = self.sensor_def_exists('llat_longitude')
-        lat_sensor_def = self.sensor_def_exists('llat_latitude')
+        # old: lon_sensor_def = self.sensor_def_exists('llat_longitude')
+        lon_sensor_def = self.sensor_def_exists(NC_LON_VAR)
+        # old: lat_sensor_def = self.sensor_def_exists('llat_latitude')
+        lat_sensor_def = self.sensor_def_exists(NC_LAT_VAR)
         if not lon_sensor_def or not lat_sensor_def:
             self._logger.warning('Failed to set geospatial global attributes')
         else:
 
-            lat_var_name = lat_sensor_def['nc_var_name']
-            lon_var_name = lon_sensor_def['nc_var_name']
+            # old: lat_var_name = lat_sensor_def['nc_var_name']
+            # old: lon_var_name = lon_sensor_def['nc_var_name']
+            lat_var_name = NC_LAT_VAR
+            lon_var_name = NC_LON_VAR
 
             if (lat_var_name in self._nc.variables
                     and lon_var_name in self._nc.variables):
@@ -819,12 +838,14 @@ class NetCDFWriter(object):
         self._nc.setncattr('geospatial_lon_max', max_lon)
         self._nc.setncattr('geospatial_bounds', polygon_wkt)
 
-        depth_sensor_def = self.sensor_def_exists('llat_depth')
+        # old: depth_sensor_def = self.sensor_def_exists('llat_depth')
+        depth_sensor_def = self.sensor_def_exists(NC_DEPTH_VAR)
         if not depth_sensor_def:
             self._logger.warning(
                 'Failed to set global geospatial_vertical attributes')
         else:
-            depth_var_name = depth_sensor_def['nc_var_name']
+            # old: depth_var_name = depth_sensor_def['nc_var_name']
+            depth_var_name = NC_DEPTH_VAR
             if depth_var_name in self._nc.variables:
                 try:
                     min_depth = np.nanmin(self._nc.variables[depth_var_name][:])
@@ -863,7 +884,9 @@ class NetCDFWriter(object):
 
         # Store the value in the scalar if there is one
         if value:
-            self._nc.variables[sensor_def['nc_var_name']].assignValue(value)
+            # old:
+            # self._nc.variables[sensor_def['nc_var_name']].assignValue(value)
+            self._nc.variables[sensor].assignValue(value)
 
         return True
 
@@ -887,10 +910,12 @@ class NetCDFWriter(object):
         if not sensor_def:
             return sensor_def
 
-        if sensor_def['nc_var_name'] in self._nc.variables:
+        # old: if sensor_def['nc_var_name'] in self._nc.variables:
+        if sensor in self._nc.variables:
             self._logger.debug(
                 'NetCDF variables {:s} already exists'.format(
-                    sensor_def['nc_var_name'])
+                    # old: sensor_def['nc_var_name'])
+                    sensor)
             )
             var_exists = sensor_def
         else:
@@ -984,7 +1009,8 @@ class NetCDFWriter(object):
 
         try:
             nc_var = self._nc.createVariable(
-                sensor_def['nc_var_name'],
+                # old: sensor_def['nc_var_name'],
+                sensor,
                 sensor_def['type'],
                 dimensions=dimension,
                 zlib=True,
@@ -1134,7 +1160,8 @@ class NetCDFWriter(object):
 
         # Add the variable data
         try:
-            self._nc.variables[datatype['nc_var_name']][:] = var_data
+            # old: self._nc.variables[datatype['nc_var_name']][:] = var_data
+            self._nc.variables[var_name][:] = var_data
         except TypeError as e:
             self._logger.error('NetCDF variable {:s}: {:}'.format(var_name, e))
             return
@@ -1306,15 +1333,23 @@ class NetCDFWriter(object):
 
         # Check for the unlimited record dimension after all sensor defs have
         # been updated
-        dims = [self._nc_sensor_defs[s] for s in self._nc_sensor_defs if
-                'is_dimension' in self._nc_sensor_defs[s]
-                and self._nc_sensor_defs[s]['is_dimension']]
+        dims = [
+            (self._nc_sensor_defs[s], s) for s in self._nc_sensor_defs if
+            'is_dimension' in self._nc_sensor_defs[s]
+            and self._nc_sensor_defs[s]['is_dimension']]
+
         if not dims:
             self._logger.warning(
                 'No record dimension specified in sensor definitions')
             self._logger.warning(
                 'Cannot write NetCDF data until a record dimension is defined')
             return
+
+        # this is a temporary fix for the larger spaghetti mess of this code
+        for dim, varname in dims:
+            dim['nc_var_name'] = varname
+        dims = [dim for dim, varname in dims]
+        # end temporary fix
 
         if len(dims) != 1:
             self._logger.warning(
@@ -1396,7 +1431,7 @@ class NetCDFWriter(object):
         :return:
         """
         # Done: reduce profile to science data only is done outside of function
-        profile_times = profile.getdata('llat_time')
+        profile_times = profile.getdata(PROC_TIME_VAR)
         # Calculate and convert profile mean time to a datetime
         prof_start_time = float(profile_times[0])
         mean_profile_epoch = float(np.nanmean([profile_times[0],

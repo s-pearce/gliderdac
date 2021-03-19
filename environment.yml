@@ -1,4 +1,4 @@
-name: gncutils
+name: dac
 channels:
 - conda-forge
 - defaults
@@ -58,5 +58,5 @@ dependencies:
 - wheel=0.29.0=py35_0
 - xz=5.2.3=0
 - zlib=1.2.11=0
-prefix: /Users/kerfoot/miniconda3/envs/gncutils
+prefix:
 

@@ -26,7 +26,9 @@ def validate_ngdac_var_names(sensor_defs):
 
     validated = True
 
-    nc_var_names = [sensor_defs[s]['nc_var_name'] for s in sensor_defs]
+    # old:
+    # nc_var_names = [sensor_defs[s]['nc_var_name'] for s in sensor_defs]
+    nc_var_names = [s for s in sensor_defs]
 
     for ngdac_var in NGDAC_VAR_NAMES:
         if ngdac_var not in nc_var_names:

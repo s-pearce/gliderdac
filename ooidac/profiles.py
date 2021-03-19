@@ -8,6 +8,7 @@ from ooidac import boxcar_smooth_dataset
 
 from ooidac.processing.general import fwd_fill
 from ooidac.processing import all_sci_indices
+from configuration import PROC_TIME_VAR, PROC_DEPTH_VAR
 import profile_filters
 # import pdb
 
@@ -446,8 +447,8 @@ class Profiles(object):
         # Create list of profile indices - pearce / kerfoot method
         self._indices = []
 
-        if 'llat_time' in self.dba.sensor_names:
-            timestamps = self.dba['llat_time']
+        if PROC_TIME_VAR in self.dba.sensor_names:
+            timestamps = self.dba[PROC_TIME_VAR]
         else:
             timestamps = self.dba['m_present_time']
 
@@ -457,12 +458,12 @@ class Profiles(object):
                 ('m_depth not found in dba {:s} for profiles, '
                  'trying pressure/depth instead').format(self.dba.source_file)
             )
-            if 'llat_depth' not in self.dba.sensor_names:
+            if PROC_DEPTH_VAR not in self.dba.sensor_names:
                 logging.warning('no depth source found in dba {:s}'.format(
                     self.dba.source_file)
                 )
                 return
-            depth = self.dba['llat_depth']['data']
+            depth = self.dba[PROC_DEPTH_VAR]['data']
         else:
             depth = self.dba['m_depth']['data']
 
@@ -592,7 +593,7 @@ class Profiles(object):
         """
         profile_indexes = []
 
-        timestamps = self.dba['llat_time']['data']
+        timestamps = self.dba[PROC_TIME_VAR]['data']
 
         if 'm_depth_state' not in self.dba.sensor_names:
             logging.debug('Thought there was depth state, but not')

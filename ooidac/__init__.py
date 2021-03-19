@@ -2,7 +2,8 @@
 import numpy as np
 from scipy import signal
 
-__version__ = '0.1.0'
+with open("version") as fid:
+    __version__ = fid.read()
 
 
 def clean_dataset(dataset):

@@ -1,5 +1,5 @@
 """oxygen_calculation
-Module of calculations and utilities for calculation of oxygen concentration
+Module of calculations and config_file_conversions for calculation of oxygen concentration
 for an Aanderaa 4831 Oxygen Optode.
 
 References
