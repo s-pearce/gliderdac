@@ -1542,11 +1542,16 @@ class NetCDFWriter(object):
         self.set_container_variables()
 
         # Create variables and add data
-        nc_sensor_names = list(self.nc_sensor_defs.keys())
-        sensors_to_write = np.intersect1d(
-            profile.sensor_names, nc_sensor_names)
+        # nc_sensor_names = list(self.nc_sensor_defs.keys())
+        # sensors_to_write = np.intersect1d(
+        #     profile.sensor_names, nc_sensor_names)
+        sensors_to_write = self._nc_vars_to_write(profile.sensor_names)
         for var_name in sensors_to_write:
-            var_data = profile.getdata(var_name)
+            if var_name in profile.sensor_names:
+                var_data = profile.getdata(var_name)
+            else:
+                sensor = self.nc_sensor_defs[var_name]['source_sensor']
+                var_data = profile.getdata(sensor)
             logging.debug('Inserting {:s} data array'.format(var_name))
             self.insert_var_data(var_name, var_data)
 
@@ -1574,6 +1579,20 @@ class NetCDFWriter(object):
 
         return out_nc_file
         # output_nc_files.append(out_nc_file)
+
+    def _nc_vars_to_write(self, glider_var_names):
+        """ determines which variables there is data for to write to the nc file
+
+        """
+        sensors_to_write = []
+        for ncvar in self.nc_sensor_defs:
+            if ncvar in glider_var_names:
+                sensors_to_write.append(ncvar)
+            elif 'source_sensor' in self.nc_sensor_defs[ncvar]:
+                source = self.nc_sensor_defs[ncvar]['source_sensor']
+                if source in glider_var_names:
+                    sensors_to_write.append(ncvar)
+        return sensors_to_write
 
     def __repr__(self):
 

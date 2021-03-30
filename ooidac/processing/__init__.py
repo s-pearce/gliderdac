@@ -327,6 +327,20 @@ def ctd_data(dba, ctd_sensors):
         'attrs': {},  # these get filled in later by the netCDF writer
         'data': density
     }
+
+    # temporary add until can handle better processing
+    # ToDo: Remove this section once can handle single un-processed variables
+    dba['conductivity'] = {
+        'sensor_name': 'conductivity',
+        'attrs': cond['attrs'],
+        'data': cond['data']
+    }
+    dba['temperature'] = {
+        'sensor_name': 'temperature',
+        'attrs': temp['attrs'],
+        'data': temp['data']
+    }
+
     return dba
 
 
