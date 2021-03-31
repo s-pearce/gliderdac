@@ -237,7 +237,10 @@ def main(args):
                     'calculation_type'],
                 cal_dict=var_processing['corrected_oxygen']['cal_coefs']
             )
-            dba = processing.o2_s_and_p_comp(dba, 'corrected_oxygen')
+            dba = processing.o2_s_and_p_comp(dba, 'temp_corrected_oxygen')
+            oxy = dba['oxygen']
+            oxy['sensor_name'] = 'corrected_oxygen'
+            dba['corrected_oxygen'] = oxy
         elif 'sci_oxy4_oxygen' in dba.sensor_names:
             dba = processing.o2_s_and_p_comp(dba)
             if dba is None:

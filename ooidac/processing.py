@@ -829,7 +829,7 @@ def check_and_recalc_o2(dba, calc_type, cal_dict):
     oxy_units['data'] = new_oxy
     oxy_units['attrs']['comment'] = (
         "Oxygen recalculated from signal using calibration parameters")
-    oxy_units['sensor_name'] = "corrected_oxygen"
+    oxy_units['sensor_name'] = "temp_corrected_oxygen"
     oxy_units['attrs']['source_sensor'] = "sci_oxy4_calphase, sci_oxy4_temp"
     dba.add_data(oxy_units)
 
