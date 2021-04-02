@@ -1,6 +1,6 @@
 import os
 import logging
-#import json
+# import json
 import datetime
 import tempfile
 import shutil
@@ -1129,13 +1129,15 @@ class NetCDFWriter(object):
                 complevel=self._comp_level
             )
 
-            if attrs:
-                attrs['long_name'] = 'Source data file'
-                attrs['comment'] = (
-                    'Name of the source data file and associated file metadata'
-                )
-                for key, value in sorted(attrs.items()):
-                    source_file_var.setncattr(key, value)
+            if attrs is None:
+                attrs = {}
+
+            attrs['long_name'] = 'Source data file'
+            attrs['comment'] = (
+                'Name of the source data file and associated file metadata'
+            )
+            for key, value in sorted(attrs.items()):
+                source_file_var.setncattr(key, value)
         else:
             source_file_var = self._nc.variables['source_file']
 
@@ -1518,7 +1520,7 @@ class NetCDFWriter(object):
 
         # Create the source file scalar variable
         self.set_source_file_var(
-            profile.file_metadata['filename_label'], profile.file_metadata)
+            profile.file_metadata['filename_label'])
 
         # Update the self.nc_sensors_defs with the dba sensor definitions
         self.update_data_file_sensor_defs(profile.sensors)
