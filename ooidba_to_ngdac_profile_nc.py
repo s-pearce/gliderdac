@@ -92,10 +92,14 @@ def main(args):
     status_path = os.path.join(config_path, 'status.json')
     if not os.path.exists(status_path):
         status = {
+            "history": "", "date_created": "", "date_modified": "",
+            "date_issued": "", "version": "", "uuid": "",
+            "raw_directory": os.path.dirname(os.path.realpath(dba_files[0])),
+            "nc_directory": output_path,
             "next_profile_id": None, "files_processed": [],
             "profiles_created": [], "profiles_uploaded": [],
-            "raw_directory": os.path.realpath(dba_files[0]),
-            "nc_directory": output_path}
+            "profile_to_data_map": []
+            }
     else:
         with open(status_path, 'r') as fid:
             status = json.load(fid)
@@ -137,6 +141,7 @@ def main(args):
     output_nc_files = []
     source_dba_files = []
     processed_dbas = []
+    profile_to_data_map = []
 
     # Pre-processing
     # ToDo: clean this up
@@ -384,6 +389,7 @@ def main(args):
             if out_nc_file:  # can be None if skipping
                 output_nc_files.append(os.path.basename(out_nc_file))
                 source_dba_files.append(os.path.basename(dba_file))
+                profile_to_data_map.append((out_nc_file, dba_file))
 
         processed_dbas.append(os.path.basename(dba_file))
 
@@ -407,6 +413,7 @@ def main(args):
     processed_dbas.sort(key=sort_function)  # sets don't preserve order
     status['files_processed'].extend(processed_dbas)
     status['profiles_created'].extend(output_nc_files)
+    status['profile_to_data_map'].extend(profile_to_data_map)
     with open(status_path, 'w') as fid:
         json.dump(status, fid, indent=2)
 

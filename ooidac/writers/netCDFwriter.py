@@ -1522,7 +1522,10 @@ class NetCDFWriter(object):
         if nc_file:
             try:
                 shutil.move(tmp_nc, out_nc_file)
-                os.chmod(out_nc_file, 0o755)
+                # --Removing the chmod line because it is bad form to presume
+                # --permissions, plus it fails across remote drives with
+                # --different file systems.
+                # os.chmod(out_nc_file, 0o755)
             except IOError as e:
                 logging.error(
                     'Error moving temp NetCDF file {:s}: {:}'.format(
