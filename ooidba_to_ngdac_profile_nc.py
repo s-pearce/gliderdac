@@ -19,6 +19,7 @@ from ooidac.data_classes import DbaData
 from ooidac.profiles import Profiles
 from ooidac.data_checks import check_file_goodness, check_for_dav_sensors
 from ooidac.constants import SCI_CTD_SENSORS
+from ooidac.status import Status
 from dba_file_sorter import sort_function
 
 
@@ -90,31 +91,60 @@ def main(args):
     # Create a status.json file in the config directory given to hold
     # information from the latest run
     status_path = os.path.join(config_path, 'status.json')
-    if not os.path.exists(status_path):
-        status = {
-            "history": "", "date_created": "", "date_modified": "",
-            "date_issued": "", "version": "", "uuid": "",
-            "raw_directory": os.path.dirname(os.path.realpath(dba_files[0])),
-            "nc_directory": output_path,
-            "next_profile_id": None, "files_processed": [],
-            "profiles_created": [], "profiles_uploaded": [],
-            "profile_to_data_map": []
-            }
-    else:
-        with open(status_path, 'r') as fid:
-            status = json.load(fid)
+
+    # if not os.path.exists(status_path):
+    #     status = {
+    #         "history": "", "date_created": "", "date_modified": "",
+    #         "date_issued": "", "version": "", "uuid": "",
+    #         "raw_directory": os.path.dirname(os.path.realpath(dba_files[0])),
+    #         "nc_directory": output_path,
+    #         "next_profile_id": None, "files_processed": [],
+    #         "profiles_created": [], "profiles_uploaded": [],
+    #         "profile_to_data_map": []
+    #         }
+    # else:
+    #     with open(status_path, 'r') as fid:
+    #         status = json.load(fid)
+    status = Status(status_path)
 
     # get the next profile id if this dataset has been run before.
     # ToDo: for now this works for realtime, but it should be changed to
     #  exclude cases where you might re-run a recovered dataset and clobber.
-    if status['next_profile_id'] and start_profile_id > 0:
-        start_profile_id = status['next_profile_id']
+    if status.info['next_profile_id'] and start_profile_id > 0:
+        start_profile_id = status.info['next_profile_id']
+
+    # eliminate files that have already run
+    if clobber:
+        files_to_run = dba_files
+        status.update_modified_date()
+    else:
+        dba_files2 = list(map(os.path.abspath, dba_files))
+        files_to_run = set(dba_files2).difference(status.info['files_processed'])
+        files_to_run = list(files_to_run)
+    files_to_run.sort(key=sort_function)
 
     # Create the Trajectory NetCDF writer
     ncw = NetCDFWriter(
         config_path, output_path, comp_level=comp_level,
         nc_format=nc_format, starting_profile_id=start_profile_id,
         clobber=clobber)
+    if not status.trajectory:
+        status.trajectory = ncw.trajectory
+
+    # use running status object to write global attributes
+    ncw.add_global_attribute(
+        'history', status.info['history'], override=True)
+    ncw.add_global_attribute(
+        'date_created', status.info['date_created'], override=True)
+    ncw.add_global_attribute(
+        'date_modified', status.info['date_modified'], override=True)
+    ncw.add_global_attribute(
+        'date_issued', status.info['date_issued'], override=True)
+    ncw.add_global_attribute(
+        'uuid', status.info['uuid'], override=True)
+    ncw.add_global_attribute(
+        'version', status.info['version'], override=True)
+
     # Make sure we have llat_* sensors defined in ncw.nc_sensor_defs
     ctd_valid = validate_sensors(ncw.nc_sensor_defs, ctd_sensors)
     if not ctd_valid:
@@ -137,11 +167,12 @@ def main(args):
     # sub-level to the file being processed after an initial processing file
     # statement
 
-    # Write one NetCDF file for each input file
-    output_nc_files = []
-    source_dba_files = []
-    processed_dbas = []
-    profile_to_data_map = []
+    # These are now handled by the Status class
+    # # Write one NetCDF file for each input file
+    # output_nc_files = []
+    # source_dba_files = []
+    # processed_dbas = []
+    # profile_to_data_map = []
 
     # Pre-processing
     # ToDo: clean this up
@@ -151,7 +182,7 @@ def main(args):
             var_processing[var_defs] = ncw.config_sensor_defs[var_defs].pop(
                 "processing")
 
-    for dba_file in dba_files:
+    for dba_file in files_to_run:
         # change to non-indented log format (see above)
         logmanager.update_format(start_log_format)
 
@@ -176,6 +207,8 @@ def main(args):
                 or mission == 'LASTGASP.MI'
                 or mission == 'INITIAL.MI'):
             logging.info('Skipping {:s} data file'.format(mission))
+            # skip source file in future runs by adding to status
+            status.add_src(dba_file)
             continue
 
         # check the data file for the required sensors and that science data
@@ -187,6 +220,7 @@ def main(args):
                 'the required sensors, or does not have any dives deep enough '
                 'to produce DAC formatted profiles'.format(dba.source_file)
             )
+            status.add_src(dba_file)
             continue
 
         scalars = []
@@ -387,11 +421,9 @@ def main(args):
             # ToDo: fix the history writer in NetCDFWriter
             out_nc_file = ncw.write_profile(profile, scalars)
             if out_nc_file:  # can be None if skipping
-                output_nc_files.append(os.path.basename(out_nc_file))
-                source_dba_files.append(os.path.basename(dba_file))
-                profile_to_data_map.append((out_nc_file, dba_file))
+                status.add_nc(out_nc_file, dba_file)
 
-        processed_dbas.append(os.path.basename(dba_file))
+        status.add_src(dba_file)
 
     # Delete the temporary directory once files have been moved
     try:
@@ -406,20 +438,21 @@ def main(args):
     # write the processed files and last profile id to status.json
     logging.debug('Writing run status to status.json')
     if start_profile_id > 0:
-        status['next_profile_id'] = ncw.profile_id
-    already_processed = set(status['files_processed'])
-    set_processed_dbas = set(processed_dbas)
-    processed_dbas = list(set_processed_dbas.difference(already_processed))
-    processed_dbas.sort(key=sort_function)  # sets don't preserve order
-    status['files_processed'].extend(processed_dbas)
-    status['profiles_created'].extend(output_nc_files)
-    status['profile_to_data_map'].extend(profile_to_data_map)
-    with open(status_path, 'w') as fid:
-        json.dump(status, fid, indent=2)
+        status.info['next_profile_id'] = ncw.profile_id
+        status.write()
+    # already_processed = set(status['files_processed'])
+    # set_processed_dbas = set(processed_dbas)
+    # processed_dbas = list(set_processed_dbas.difference(already_processed))
+    # processed_dbas.sort(key=sort_function)  # sets don't preserve order
+    # status['files_processed'].extend(processed_dbas)
+    # status['profiles_created'].extend(output_nc_files)
+    # status['profile_to_data_map'].extend(profile_to_data_map)
+    # with open(status_path, 'w') as fid:
+    #     json.dump(status, fid, indent=2)
 
     # Print the list of files created
     sys.stdout.write('Profiles NC files written:\n')
-    for source_dba, output_nc_file in zip(source_dba_files, output_nc_files):
+    for output_nc_file, source_dba in status.data_map:
         # os.chmod(os.path.join(output_path, output_nc_file), 0o664)
         sys.stdout.write('\t{:s} -> {:s}\n'.format(source_dba, output_nc_file))
 

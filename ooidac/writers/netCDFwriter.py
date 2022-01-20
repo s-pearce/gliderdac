@@ -8,7 +8,7 @@ from copy import deepcopy
 import numpy as np
 import uuid
 from netCDF4 import Dataset, stringtoarr
-from shapely.geometry import Polygon
+# from shapely.geometry import Polygon
 from dateutil import parser
 from ooidac.constants import NETCDF_FORMATS, NC_FILL_VALUES
 from ooidac.constants import REQUIRED_SENSOR_DEFS_KEYS
@@ -188,8 +188,8 @@ class NetCDFWriter(object):
         specific settings:
         
         1. Set the deployment configuration path
-        2. Update default sensor definitions with the deployment specific sensor 
-            definitions.
+        2. Update default sensor definitions with the deployment specific
+            sensor definitions.
         3. Update default global attributes with the deployment specific
             deployment attributes
         4. Load glider instrument information.
@@ -410,11 +410,13 @@ class NetCDFWriter(object):
         1. Open the file in write mode
         2. Create the record dimension
         3. Set all global attributes
-        4. Update the history global attribute
-        5. Create the platform variable
-        6. Create the instrument variable
-        7. Close the file
+        4. Create the platform variable
+        5. Create the instrument variable
+        6. Close the file
         """
+        # previous number 4 was Update the history global attribute, but
+        # this is now controlled by the Status object for trajectory
+        # level record keeping
 
         if not self._record_dimension:
             self._logger.error(
@@ -445,13 +447,15 @@ class NetCDFWriter(object):
 
         # Write global attributes
         # Add date_created, date_modified, date_issued globals
-        nc_create_ts = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
-        self._attributes['global']['date_created'] = nc_create_ts
-        self._attributes['global']['date_issued'] = nc_create_ts
-        self._attributes['global']['date_modified'] = nc_create_ts
-        # Add history attribute if not present in self._attributes['global']
-        if 'history' not in self._attributes['global']:
-            self._attributes['global']['history'] = ' '
+        #=== These are now written by the Status object in the outer function ===#
+        #nc_create_ts = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+        #self._attributes['global']['date_created'] = nc_create_ts
+        #self._attributes['global']['date_issued'] = nc_create_ts
+        #self._attributes['global']['date_modified'] = nc_create_ts
+        ## Add history attribute if not present in self._attributes['global']
+        #if 'history' not in self._attributes['global']:
+        #    self._attributes['global']['history'] = ' '
+
         if 'id' not in self._attributes['global']:
             self._attributes['global']['id'] = ' '
 
@@ -465,8 +469,9 @@ class NetCDFWriter(object):
         # Write the NetCDF global attributes
         self.set_global_attributes()
 
+        #=== History now controlled in Status object in outer calling function ===#
         # Update global history attribute
-        self.update_history('{:s}.nc created'.format(nc_filename))
+        # self.update_history('{:s}.nc created'.format(nc_filename))
 
         # Create platform container variable
         self.set_platform()
@@ -474,8 +479,10 @@ class NetCDFWriter(object):
         # Create instrument container variables
         self.set_instruments()
 
-        # Generate and add a UUID global attribute
-        self._nc.setncattr('uuid', '{:s}'.format(str(uuid.uuid4())))
+        #=== UUID is now set by the Status object to remain consistent
+        #=== over the entire trajectory/deployment dataset ===#
+        # # Generate and add a UUID global attribute
+        # self._nc.setncattr('uuid', '{:s}'.format(str(uuid.uuid4())))
 
         self._nc.close()
 
@@ -622,25 +629,30 @@ class NetCDFWriter(object):
                 )
 
     def update_history(self, message):
-        """ Updates the global history attribute with the message appended to
+        """ DEPRECATED: History now handled in the Status object in the
+        outer calling function to ensure a consistent history message for
+        the entire deployment. 2022-01-20
+
+        Updates the global history attribute with the message appended to
         and ISO8601:2004 timestamp
         """
-
-        # Get timestamp for this access
-        now_time_ts = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-        history_string = '{:s}: {:s}\n'.format(now_time_ts, message)
-        if 'history' not in self._nc.ncattrs():
-            self._nc.setncattr('history', history_string)
-            return
-
-        previous_history = self._nc.history.strip()
-        if not previous_history:
-            self._nc.history = history_string
-        else:
-            self._nc.history += history_string
+        return
+        # # Get timestamp for this access
+        #now_time_ts = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        # history_string = '{:s}: {:s}\n'.format(now_time_ts, message)
+        # if 'history' not in self._nc.ncattrs():
+        #     self._nc.setncattr('history', history_string)
+        #     return
+        #
+        # previous_history = self._nc.history.strip()
+        # if not previous_history:
+        #     self._nc.history = history_string
+        # else:
+        #     self._nc.history += history_string
 
     def set_container_variables(self):
-
+        """Writes the "container" (info only) variables to the netCDF file
+        """
         if not self._nc:
             self._logger.warning(
                 'NetCDF file must be initialized before adding container '
@@ -676,7 +688,7 @@ class NetCDFWriter(object):
                 self._nc.variables[nc_var_name].setncattr(k, v)
 
     def set_platform(self):
-        """ Creates a variable that describes the glider
+        """ Creates a container variable that describes the glider
         """
 
         self.set_scalar('platform')
@@ -685,7 +697,8 @@ class NetCDFWriter(object):
             self._nc.variables['platform'].setncattr(key, value)
 
     def set_global_attributes(self):
-        """ Sets a dictionary of values as global attributes
+        """ Sets the dictionary of global attribute values as netCDF
+        global attributes
         """
 
         for key, value in sorted(self._attributes['global'].items()):
@@ -710,12 +723,19 @@ class NetCDFWriter(object):
         self._attributes['global'][name] = value
 
     def _update_time_coverage_global_attributes(self):
-        """Update all global time_coverage attributes.  The following global
-        attributes are created/updated:
+        """Update the global time_coverage attributes.  The following
+        global attributes are created/updated:
             time_coverage_start
             time_coverage_end
-            time_coverage_duration
+
+        Note: These are overwritten on the IOOS Glider DAC to the coverage
+            values for the entire trajectory dataset submitted. Therefore
+            these are only of value to the glider operator/ data set
+            creator at the profile netCDF level.
         """
+        # Note: removed the creation of `time_coverage_duration` and
+        # `time_coverage_resolution` because they show up in the IOOS
+        # trajectory dataset for a single profile nc file.
 
         # time_var_name = self.sensor_def_exists('drv_timestamp')
         time_sensor_def = self.sensor_def_exists('llat_time')
@@ -751,18 +771,23 @@ class NetCDFWriter(object):
             'time_coverage_start', dt0.strftime('%Y-%m-%dT%H:%M:%SZ'))
         self._nc.setncattr(
             'time_coverage_end', dt1.strftime('%Y-%m-%dT%H:%M:%SZ'))
-        self._nc.setncattr(
-            'time_coverage_duration', self.delta_to_iso_duration(dt1 - dt0))
 
-        # Calculate the approximate time_coverage_resolution
-        num_seconds = (dt1 - dt0).total_seconds()
-        data_length = self._nc.variables[time_var_name].size
-        resolution_seconds = num_seconds / data_length
+        # The duration and resolution calculations are deprecated since
+        # the IOOS DAC keeps duration and resolution from a single profile
+        # NC for the entire trajectory dataset which makes them wrong /
+        # irrelevant
+        # self._nc.setncattr(
+        #     'time_coverage_duration', self.delta_to_iso_duration(dt1 - dt0))
 
-        self._nc.setncattr(
-            'time_coverage_resolution',
-            self.delta_to_iso_duration(resolution_seconds)
-        )
+        # # Calculate the approximate time_coverage_resolution
+        # num_seconds = (dt1 - dt0).total_seconds()
+        # data_length = self._nc.variables[time_var_name].size
+        # resolution_seconds = num_seconds / data_length
+
+        # self._nc.setncattr(
+        #     'time_coverage_resolution',
+        #     self.delta_to_iso_duration(resolution_seconds)
+        # )
 
     def _update_geospatial_global_attributes(self):
         """Update all global geospatial_ min/max attributes.  The following
@@ -771,10 +796,15 @@ class NetCDFWriter(object):
             geospatial_lat_max
             geospatial_lon_min
             geospatial_lon_max
-            geospatial_bounds
             geospatial_vertical_min
             geospatial_vertical_max
         """
+        # Note: Removed the geospatial bounds polygon because when
+        # the dataset is aggregated at the DAC level, the bounds attribute
+        # for the entire trajectory dataset is kept from a single profile
+        # nc file (a random one from the dataset) which makes the value
+        # provided in the trajectory dataset wrong or irrelevant.
+        # Removed the depth resolution attribute for the same reason.
 
         min_lat = " "
         max_lat = " "
@@ -782,8 +812,8 @@ class NetCDFWriter(object):
         max_lon = " "
         min_depth = " "
         max_depth = " "
-        depth_resolution = " "
-        polygon_wkt = u'POLYGON EMPTY'
+        # depth_resolution = " "
+        # polygon_wkt = u'POLYGON EMPTY'
 
         lon_sensor_def = self.sensor_def_exists('llat_longitude')
         lat_sensor_def = self.sensor_def_exists('llat_latitude')
@@ -801,23 +831,24 @@ class NetCDFWriter(object):
                 min_lon = self._nc.variables[lon_var_name][:].min()
                 max_lon = self._nc.variables[lon_var_name][:].max()
 
-                # Make sure we have non-Nan for all values
-                if not np.any(np.isnan([min_lat, max_lat, min_lon, max_lon])):
-                    # Create polygon WKT and set geospatial_bounds
-                    coords = ((max_lat, min_lon),
-                              (max_lat, max_lon),
-                              (min_lat, max_lon),
-                              (min_lat, min_lon),
-                              (max_lat, min_lon))
-                    polygon = Polygon(coords)
-                    polygon_wkt = polygon.wkt
+                #=== DEPRECATED: geospatial bounds calculation ===#
+                # # Make sure we have non-Nan for all values
+                # if not np.any(np.isnan([min_lat, max_lat, min_lon, max_lon])):
+                #     # Create polygon WKT and set geospatial_bounds
+                #     coords = ((max_lat, min_lon),
+                #               (max_lat, max_lon),
+                #               (min_lat, max_lon),
+                #               (min_lat, min_lon),
+                #               (max_lat, min_lon))
+                #     polygon = Polygon(coords)
+                #     polygon_wkt = polygon.wkt
 
         # Set the global attributes
         self._nc.setncattr('geospatial_lat_min', min_lat)
         self._nc.setncattr('geospatial_lat_max', max_lat)
         self._nc.setncattr('geospatial_lon_min', min_lon)
         self._nc.setncattr('geospatial_lon_max', max_lon)
-        self._nc.setncattr('geospatial_bounds', polygon_wkt)
+        # self._nc.setncattr('geospatial_bounds', polygon_wkt)
 
         depth_sensor_def = self.sensor_def_exists('llat_depth')
         if not depth_sensor_def:
@@ -829,17 +860,18 @@ class NetCDFWriter(object):
                 try:
                     min_depth = np.nanmin(self._nc.variables[depth_var_name][:])
                     max_depth = np.nanmax(self._nc.variables[depth_var_name][:])
-                    depth_resolution = (
-                            (max_depth - min_depth)
-                            / self._nc.variables[depth_var_name].size
-                    )
+                    #=== removed depth resolution, see reason in note above
+                    # depth_resolution = (
+                    #         (max_depth - min_depth)
+                    #         / self._nc.variables[depth_var_name].size
+                    # )
                 except (TypeError, ValueError) as e:
                     self._logger.warning('{:s}: {:}'.format(self._out_nc, e))
-                    depth_resolution = np.nan
+                    # depth_resolution = np.nan
 
         self._nc.setncattr('geospatial_vertical_min', min_depth)
         self._nc.setncattr('geospatial_vertical_max', max_depth)
-        self._nc.setncattr('geospatial_verical_resolution', depth_resolution)
+        # self._nc.setncattr('geospatial_verical_resolution', depth_resolution)
 
     def set_scalar(self, sensor, value=None):
         """Create the NetCDF scalar variable specified in
@@ -1459,7 +1491,8 @@ class NetCDFWriter(object):
         try:
             self.open_nc()
             # Add command line call used to create the file
-            # ToDo: get this working.
+            #=== DEPRECATED: History now maintained by Status object ===#
+            #=== for trajectory level record keeping ===#
             # self.update_history('{:s} {:s}'.format(
             #     sys.argv[0],
             #     profile.source_file)
