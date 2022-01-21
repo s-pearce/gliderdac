@@ -207,7 +207,7 @@ def lat_and_lon_coordinates(dba, time_sensor):
     lat_ii = np.flatnonzero(np.isfinite(lats))
     bad_lats = lats[lat_ii] > 9000.0
     lats[lat_ii[bad_lats]] = np.nan
-    lat_sensor['data'] = gps.iso2deg(lats)
+    lat_sensor['data'] = iso2deg(lats)
 
     # lat_sensor['data'][lat_sensor['data'] > 9000.0] = np.nan
     # lat_sensor['data'] = gps.iso2deg(lat_sensor['data'])
@@ -223,7 +223,7 @@ def lat_and_lon_coordinates(dba, time_sensor):
     lon_ii = np.flatnonzero(np.isfinite(lons))
     bad_lons = lons[lon_ii] > 18000.0
     lons[lon_ii[bad_lons]] = np.nan
-    lon_sensor['data'] = gps.iso2deg(lons)
+    lon_sensor['data'] = iso2deg(lons)
 
     # lon_sensor['data'][lon_sensor['data'] > 18000] = np.nan
     # lon_sensor['data'] = gps.iso2deg(lon_sensor['data'])
@@ -231,7 +231,7 @@ def lat_and_lon_coordinates(dba, time_sensor):
     logging.info('Filling lat and lon coordinates by interpolation '
                  'between GPS fixes')
     # Interpolate llat_latitude and llat_longitude
-    lat_sensor['data'], lon_sensor['data'] = gps.interpolate_gps(
+    lat_sensor['data'], lon_sensor['data'] = interpolate_gps(
         time_sensor['data'], lat_sensor['data'], lon_sensor['data']
     )
     lat_sensor['attrs']['comment'] = (

@@ -10,7 +10,7 @@ class Status(object):
         """Writes out the status.json file"""
         self.path = status_path
         if not os.path.exists(self.path):
-            now_tstr = dt.now().strftime("%Y-%m-%dT%H:%M:%SZ")
+            now_tstr = dt.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
             self.info = {
                 "trajectory_name": "",
                 "history": "{:s}: dataset created.".format(now_tstr),
@@ -72,7 +72,7 @@ class Status(object):
 
     def update_history(self, addtl_msg):
         """updates the history message in status.json"""
-        now_tstr = dt.now().strftime("%Y-%m-%dT%H:%M:%SZ")
+        now_tstr = dt.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
         self.info['history'] += "\n{:s} {:s}".format(nowtstr, addtl_msg)
         self.info['date_modified'] = now_tstr
         self.write()
@@ -123,7 +123,7 @@ class Status(object):
 
     def update_modified_date(self):
         """updates the modified date to the current date and time"""
-        now_tstr = dt.now().strftime("%Y-%m-%dT%H:%M:%SZ")
+        now_tstr = dt.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
         self.info['date_modified'] = now_tstr
         self.write()
 

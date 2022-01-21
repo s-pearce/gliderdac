@@ -186,6 +186,8 @@ def main(args):
         if "processing" in ncw.config_sensor_defs[var_defs]:
             var_processing[var_defs] = ncw.config_sensor_defs[var_defs].pop(
                 "processing")
+    # to be added:
+    # var_processing = processing.init_processing_dict(var_processing)
 
     for dba_file in files_to_run:
         # change to non-indented log format (see above)
@@ -359,6 +361,15 @@ def main(args):
                 'attrs': {'units': 'nm'},
                 'nc_var_name': rw_var}
             scalars.append(radiation_wavelength)
+
+        # To be added:
+        # ---------General Processing------------#
+        # if var_processing:
+        #     for var in var_processing:
+        #         dba = processing.process_and_add(dba, var, var_processing[var])
+        #         if dba is None:
+        #             continue
+
 
         # If Depth Averaged Velocity (DAV) data available, (i.e. any of the
         # `*_water_vx/vy` sensors are in the data) get the values and calculate

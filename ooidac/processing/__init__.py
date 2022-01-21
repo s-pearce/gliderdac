@@ -322,3 +322,169 @@ def _add_nan_variable(gdata, variable_name, derived_variable=None):
     nanvar['data'] = np.full(len(gdata), np.nan)
     gdata.add_data(nanvar)
     return gdata
+
+
+def init_processing_func(func_dict):
+    """Import a generic processing function
+
+    """
+    module = func_dict['module']
+
+    # check if the module has path elements in it and separate those out.
+    # Check the paths exist if present.
+    if "\\" in module or "/" in module:
+        module_path = os.path.abspath(module)
+        assert os.path.exists(module_path), (
+            "Processing module {:s} not found".format(module_path))
+        module_dir = os.path.dirname(module_path)
+    elif 'module_dir' in func_dict:
+        module_dir = func_dict['module_dir']
+        assert os.path.isdir(module_dir), (
+            "Processing module directory {:s} not found".format(module_dir))
+    else:
+        module_dir = None
+
+    # if there were path elements in `module` and add the path to sys.path
+    # for importing if not already there
+    if module_dir and module_dir not in sys.path:
+        sys.path.append(module_dir)
+
+    # if there were path elements, these will remove them and do nothing if not.
+    module = os.path.basename(module)
+    modulename = module.replace('.py', '')
+
+    # import the module
+    try:
+        mod = importlib.import_module(modulename)
+    except ModuleNotFoundError:
+        logger.error(
+            "Processing Module from user input {:s} not found. Please "
+            "re-edit the processing step and try running "
+            "again.".format(modulename))
+        sys.exit(1)
+
+    # get the specific processing function to keep in the processing dictionary
+    func_name = func_dict['function']
+    try:
+        func = getattr(mod, func_name)
+    except AttributeError:
+        logger.error(
+            "Function {:s} not found in module {:s}. Please edit the processing"
+            " info and try running again.".format(func_name, modulename)
+        )
+        sys.exit()
+
+    func_dict['func'] = func
+    return func_dict
+
+
+def init_processing_dict(var_processing_dict):
+    """Initialize the processing dictionary by importing the generic functions
+    """
+
+    # pre-emptively insert the processing directory into the module search path
+    sys.path.insert(0, PROCESSING_DIR)
+
+    # each processing instruction block, import the function and store the
+    # function as an object in the processing dictionary
+    for var, func_dict in var_processing_dict.items():
+        func_dict['src_var_name'] = var
+        init_processing_func(func_dict)
+    return var_processing_dict
+
+
+def process_and_add(gldata, var_name, func_dict):
+    """Run any processing functions on the glider data
+
+    :param gldata: GliderData instance to add the processed variable to
+    :param var_name: string
+        Variable Name, the name of the variable that will be added to the
+        GliderData instance which will ultimately become a netCDF variable
+    :param func_dict:
+    :return: gdata: GliderData instance with new variable added
+    """
+
+    # func_dict = init_processing_func(func_dict)
+    func = func_dict['func']
+    func_name = func.__name__
+
+    # assemble the arguments from the func_dict
+    # first get the actual data arguments
+
+    try:
+        args = deepcopy(func_dict['data_args'])
+    except KeyError:
+        logger.error(
+            "Processing `{:s}` failed.\n"
+            "There MUST be a 'data_args' dictionary in the processing JSON "
+            "block that has at least one argument to the function {:s} "
+            "whose value is a variable name from the data file.".format(
+                var_name, func_name))
+        raise
+
+    for arg in args:
+        srcvarname = args[arg]
+        assert isinstance(srcvarname, str), (
+            "Arguments in the 'data_args' dictionary in the {:s} JSON "
+            "processing block must be a string variable name from the "
+            "glider source data".format(var_name))
+        try:
+            # return a deepcopy here to prevent a user provided function from
+            # accidentally changing the raw data
+            var = deepcopy(gldata.getdata(srcvarname))
+        except SensorError:
+            logger.error(
+                "During processing steps for `{:s}`, glider variable `{:s}` "
+                "could not be found in the data".format(var_name, srcvarname))
+            raise
+        else:
+            args[arg] = var
+    # then add any parameter arguments
+    if 'param_args' in func_dict:
+        args.update(func_dict['param_args'])
+
+    # noinspection PyBroadException
+    # ^ this turns off the Pycharm warning for using Exception as too broad
+    # ToDo: these logger error statements should be refactored to just change
+    #  the text in the error itself rather than logging, if you want to
+    #  capture the error in logging specifically (this program only outputs
+    #  the messages to stdout and stderr, so it is a moot point) then you can
+    #  use logger.exception instead (the moot point is that it would print
+    #  the error message twice to the screen.
+    try:
+        outvar = func(**args)
+    except TypeError:
+        logger.error(
+            "During processing for `{:s}`, the arguments for function "
+            "`{:s}` are incorrect. Check the inputs in the json processing "
+            "dictionary. See instructions/how_to_process.txt.".format(
+                var_name, func_name))
+        raise
+    except Exception:
+        logger.error(
+            "During processing for `{:s}`, the function `{:s}` failed. Test "
+            "the function and make sure that it returns an 1D numpy.array the "
+            "same length as the input data.".format(var_name, func_name)
+        )
+        raise
+
+    # ToDo: This section will not work if the function returns multiple
+    #  output variables, each the same length as the glider data
+    #  For now I want to complete this for processing, but in a future
+    #  implementation I want to tackle the challenging scenarios of multiple
+    #  outputs and processing from an already processed variable.
+
+    if len(outvar) != len(gldata):
+        error_msg = (
+            "The length of the output variable from the `{:s}`: `{:s}` "
+            "JSON processing block does not match the input data length"
+            "Test the processing function's output".format(var_name, func_name)
+        )
+        logging.error(error_msg)
+        raise ValueError(error_msg)
+
+    gldata.add_data(var_name, np.array(outvar))
+
+    # not complete yet.  need to account for the case of isinstance np.array
+    # where it is just one variable
+    return gldata
