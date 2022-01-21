@@ -6,8 +6,11 @@
 @brief Module containing Fluorometer Three Wavelength (FLORT) and Fluorometer
     Two Wavelength (FLORD) instrument family related functions
 """
+from copy import deepcopy
+
 import numpy as np
 import numexpr as ne
+from ooidac.processing import logger, _add_nan_variable
 
 
 def flo_bback_total(beta, degC, psu, theta, wlngth, xfactor):
@@ -524,3 +527,158 @@ def flo_beta(counts_output, counts_dark, scale_factor):
     """
     beta = flo_scale_and_offset(counts_output, counts_dark, scale_factor)
     return beta
+
+
+def recalc_flbbcd(dba, sensor, dark_offset, scale_factor):
+    """ Recalculates any of the flbbcd units from the raw signal given the
+    calibration parameters from either the calibration certificate document
+    or determined independently and inserts it back into the data set
+
+    :param dba: GliderData instance
+    :param sensor: the name of the flbbcd sensor to be re-calculated
+    :param dark_offset: Dark Offset calibration parameter
+    :param scale_factor: Scale Factor calibration parameter
+    :return: The GliderData instance with the new parameter added
+    """
+    signal = dba.getdata(sensor)
+    particle = dba[sensor]
+    new_units = flo_chla(signal, dark_offset, scale_factor)
+    particle['data'] = new_units
+    particle['comment'] = (
+        "Recalculated from raw signal")
+    particle['sensor_name'] = "corrected_" + sensor
+    dba.add_data(particle)
+
+    return dba
+
+
+def recalc_chlor(dba, dark_offset, scale_factor):
+    """ Recalculates chlorophyll from the raw signal
+
+    :param dba: GliderData instance
+    :param dark_offset: Dark Offset calibration parameter
+    :param scale_factor: Scale Factor calibration parameter
+    :return: The GliderData instance with the new parameter added
+    """
+    if 'sci_flbbcd_chlor_sig' not in dba.sensor_names:
+        logger.warning(
+            "sci_flbbcd_chlor_sig is not present to recalculate chlorophyll. "
+            "Filling with NaNs instead.")
+        # This needs to return a variable called `corrected_chlor` or else the
+        # code will not continue with the rest of the potentially good data, so
+        # this should return `corrected_chlor` full of nans since it can not be
+        # corrected
+        nanchlor = deepcopy(dba['sci_flbbcd_chlor_units'])
+        nanchlor['sensor_name'] = "corrected_chlor"
+        nanchlor['data'] = np.full(len(dba), np.nan)
+        dba.add_data(nanchlor)
+        return _add_nan_variable(
+                dba, "corrected_chlor", "sci_flbbcd_chlor_units")
+    chlor_sig = dba.getdata('sci_flbbcd_chlor_sig')
+    chlor_units = deepcopy(dba['sci_flbbcd_chlor_units'])
+    new_chlor = scale_factor * (chlor_sig - dark_offset)
+    chlor_units['data'] = new_chlor
+    chlor_units['attrs']['comment'] = (
+        "Chlorophyll recalculated from signal using calibration parameters")
+    chlor_units['sensor_name'] = "corrected_chlor"
+    chlor_units['attrs']['source_sensor'] = "sci_flbbcd_chlor_sig"
+    dba.add_data(chlor_units)
+
+    return dba
+
+
+def backscatter_total(gldata, src_sensor, var_name, **kwargs):
+    """Calculate total backscatter
+
+    Can either calculate total backscatter from the scaled units uE/m^2sec or
+    from raw instrument counts if `dark_counts` and `scale_factor` are
+    included as inputs.  If inputs `wlngth`, `theta`, and `xfactor` are not
+    included, the parameters for a 3 channel ECO triplet with 700 nm
+    wavelength are assumed (e.g. FLBBCD)
+
+    :param gldata: a GliderData instance
+    :param str src_sensor: The source sensor(variable) to use for the
+        calculation
+    :param str var_name: The variable name to use for backscatter added to
+        the GliderData instance.
+    :param kwargs: optional keyword arguments
+        wlngth: Wavelength of the backscatter sensor [nm]. Default is 700 nm
+        theta: Centroid Angle of the backscatter sensor [degrees].
+            Default is 124 degrees.
+        xfactor: Chi-factor of the backscatter sensor.  Default is 1.076
+        dark_counts : The raw counts value for the sensor in the dark from the
+            calibration information. Must be included with `scale_factor`,
+            otherwise ignored
+        scale_factor: The wet scale factor for the sensor from the calibration
+            information for the appropriate end units. Must be included with
+            `dark_counts` otherwise ignored
+
+    :return: The GliderData instance with the backscatter variable added.
+    """
+    # set defaults if these arguments are not included in the kwargs
+    required_args = ['theta', 'wlngth', 'xfactor']
+    if (
+            'wlngth' not in kwargs and
+            'theta' not in kwargs and
+            'xfactor' not in kwargs):
+        kwargs['wlngth'] = 700.0
+        kwargs['theta'] = 124.0
+        kwargs['xfactor'] = 1.076
+    assert all([x in kwargs for x in required_args]), (
+        '"wlngth", "theta", and "xfactor" must either all be present or absent '
+        'in the "processing" dictionary for "{:s}".'.format(var_name)
+    )
+
+    # return if sensor is not found in GliderData instance
+    if src_sensor not in gldata.sensor_names:
+        logger.warning(
+            'Adding {:s} as all NaNs because source variable {:s} for '
+            'processing does not exist'.format(
+                var_name, src_sensor))
+        gldata = _add_nan_variable(gldata, var_name)
+        return gldata
+
+    # copy the particle structure to keep the metadata from the src_sensor
+    backscatter_particle = deepcopy(gldata[src_sensor])
+
+    # if src_sensor ends with _sig it is in raw counts and needs to be converted
+    # to beta using the calibration values for dark_counts and scale_factor,
+    # which both need to be present.
+    if src_sensor.endswith('_sig'):
+        assert ('dark_counts' in kwargs and 'scale_factor' in kwargs), (
+            '"dark_counts" and "scale_factor" must be included as "processing" '
+            'dictionary arguments for "{:s}" in sensor_defs.json.'.format(
+                var_name)
+        )
+        dark_counts = kwargs.pop('dark_counts')
+        scale_factor = kwargs.pop('scale_factor')
+        counts = backscatter_particle['data'].copy()
+        beta = flo_beta(counts, dark_counts, scale_factor)
+    else:
+        beta = backscatter_particle['data'].copy()
+
+    backscatter_particle['data'] = np.full(len(beta), np.nan)
+
+    beta_ii = np.isfinite(beta)
+    timestamps = gldata.getdata('m_present_time')
+    beta_ts = timestamps[beta_ii]
+    beta = beta[beta_ii]
+    temp = gldata.getdata('sci_water_temp')
+    salt = gldata.getdata('salinity')
+
+    temp_bt = np.interp(
+        beta_ts, timestamps[np.isfinite(temp)], temp[np.isfinite(temp)])
+    salt_bt = np.interp(
+        beta_ts, timestamps[np.isfinite(salt)], salt[np.isfinite(salt)])
+
+    theta = kwargs['theta']
+    wlngth = kwargs['wlngth']
+    xfactor = kwargs['xfactor']
+    bback = flo_bback_total(beta, temp_bt, salt_bt, theta, wlngth, xfactor)
+
+    backscatter_particle['data'][beta_ii] = bback
+    backscatter_particle['sensor_name'] = var_name
+    backscatter_particle['attrs']['units'] = 'm-1'
+
+    gldata.add_data(backscatter_particle)
+    return gldata

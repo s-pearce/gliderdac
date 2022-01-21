@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 import numpy as np
 import logging
 import os
@@ -191,3 +193,52 @@ def correct_uw_dr_pos(dba):
         dba.ts, dba.ts[positions_ii], lons[positions_ii],
         left=lons[positions_ii[0]], right=lons[positions_ii[-1]])
     return lats, lons
+
+
+def lat_and_lon_coordinates(dba, time_sensor):
+    # Convert m_gps_lat to decimal degrees and create the new sensor
+    # definition
+    lat_sensor = deepcopy(dba['m_gps_lat'])
+    lat_sensor['sensor_name'] = 'llat_latitude'
+    lat_sensor['attrs']['source_sensor'] = u'm_gps_lat'
+
+    # Skip default values (69696969)
+    lats = lat_sensor['data']
+    lat_ii = np.flatnonzero(np.isfinite(lats))
+    bad_lats = lats[lat_ii] > 9000.0
+    lats[lat_ii[bad_lats]] = np.nan
+    lat_sensor['data'] = gps.iso2deg(lats)
+
+    # lat_sensor['data'][lat_sensor['data'] > 9000.0] = np.nan
+    # lat_sensor['data'] = gps.iso2deg(lat_sensor['data'])
+
+    # Convert m_gps_lon to decimal degrees and create the new sensor
+    # definition
+    lon_sensor = deepcopy(dba['m_gps_lon'])
+    lon_sensor['sensor_name'] = 'llat_longitude'
+    lon_sensor['attrs']['source_sensor'] = u'm_gps_lon'
+
+    # Skip default values (69696969)
+    lons = lon_sensor['data']
+    lon_ii = np.flatnonzero(np.isfinite(lons))
+    bad_lons = lons[lon_ii] > 18000.0
+    lons[lon_ii[bad_lons]] = np.nan
+    lon_sensor['data'] = gps.iso2deg(lons)
+
+    # lon_sensor['data'][lon_sensor['data'] > 18000] = np.nan
+    # lon_sensor['data'] = gps.iso2deg(lon_sensor['data'])
+
+    logging.info('Filling lat and lon coordinates by interpolation '
+                 'between GPS fixes')
+    # Interpolate llat_latitude and llat_longitude
+    lat_sensor['data'], lon_sensor['data'] = gps.interpolate_gps(
+        time_sensor['data'], lat_sensor['data'], lon_sensor['data']
+    )
+    lat_sensor['attrs']['comment'] = (
+        u'm_gps_lat converted to decimal degrees and interpolated'
+    )
+    lon_sensor['attrs']['comment'] = (
+        u'm_gps_lon converted to decimal degrees and interpolated'
+    )
+
+    return lat_sensor, lon_sensor

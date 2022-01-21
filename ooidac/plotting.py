@@ -4,6 +4,7 @@ import datetime as dt
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+from ooidac.processing.ctd import ctd_data
 
 from configuration import PROC_LON_VAR, PROC_LAT_VAR, PROC_PRES_VAR, PROC_TIME_VAR
 from configuration import CONDUCTIVITY_SENSOR, TEMPERATURE_SENSOR, DEPTH_SENSOR
@@ -38,7 +39,7 @@ def plot_profiles_for_dba(dba_file, unfiltered=False):
     if dba is None:
         return
 
-    dba = process_dba.ctd_data(dba, ctd_sensors)
+    dba = ctd_data(dba, ctd_sensors)
     if dba is None:
         return
 

@@ -7,8 +7,13 @@ import argparse
 import shutil
 # import pdb
 import glob
-import json
 
+import ooidac.processing.attitude
+import ooidac.processing.ctd
+import ooidac.processing.fluorometer
+import ooidac.processing.oxygen
+import ooidac.processing.par
+import ooidac.processing.velocity
 from ooidac.writers.netCDFwriter import NetCDFWriter
 
 from ooidac.constants import NETCDF_FORMATS, LLAT_SENSORS
@@ -17,7 +22,7 @@ from ooidac.validate import validate_sensors, validate_ngdac_var_names
 import ooidac.processing as processing
 from ooidac.data_classes import DbaData
 from ooidac.profiles import Profiles
-from ooidac.data_checks import check_file_goodness, check_for_dav_sensors
+from ooidac.data_checks import check_file_goodness
 from ooidac.constants import SCI_CTD_SENSORS
 from ooidac.status import Status
 from dba_file_sorter import sort_function
@@ -255,7 +260,7 @@ def main(args):
         # Convert m_pitch and m_roll variables to degrees, and add back to
         # the data instance with metadata attributes
         if 'm_pitch' in dba.sensor_names and 'm_roll' in dba.sensor_names:
-            dba = processing.pitch_and_roll(dba)
+            dba = ooidac.processing.attitude.pitch_and_roll(dba)
             if dba is None:
                 continue
 
@@ -263,31 +268,31 @@ def main(args):
         # and adds them back to the data instance with metadata attributes.
         # Requires `llat_latitude/longitude` variables are in the data
         # instance from the `create_llat_sensors` method
-        dba = processing.ctd_data(dba, SCI_CTD_SENSORS)
+        dba = ooidac.processing.ctd.ctd_data(dba, SCI_CTD_SENSORS)
         if dba is None:
             continue
 
         # Process `sci_oxy4_oxygen` to OOI L2 compensated for salinity and
         # pressure and converted to umol/kg.
         if 'corrected_oxygen' in ncw.config_sensor_defs:
-            dba = processing.check_and_recalc_o2(
+            dba = ooidac.processing.oxygen.check_and_recalc_o2(
                 dba,
                 calc_type=var_processing['corrected_oxygen'][
                     'calculation_type'],
                 cal_dict=var_processing['corrected_oxygen']['cal_coefs']
             )
-            dba = processing.o2_s_and_p_comp(dba, 'temp_corrected_oxygen')
+            dba = ooidac.processing.oxygen.o2_s_and_p_comp(dba, 'temp_corrected_oxygen')
             oxy = dba['oxygen']
             oxy['sensor_name'] = 'corrected_oxygen'
             dba['corrected_oxygen'] = oxy
         elif 'sci_oxy4_oxygen' in dba.sensor_names:
-            dba = processing.o2_s_and_p_comp(dba)
+            dba = ooidac.processing.oxygen.o2_s_and_p_comp(dba)
             if dba is None:
                 continue
 
         # Re_calculate chlorophyll
         if 'corrected_chlor' in ncw.config_sensor_defs:
-            dba = processing.recalc_chlor(
+            dba = ooidac.processing.fluorometer.recalc_chlor(
                 dba, **var_processing['corrected_chlor']
                 # dark_offset=corrections['corrected_chlor']['dark_offset'],
                 # scale_factor=corrections['corrected_chlor']['scale_factor']
@@ -299,7 +304,7 @@ def main(args):
         if 'corrected_par' in ncw.config_sensor_defs:
             # par_sensor_dark = corrections['corrected_par']['sensor_dark']
             # par_sf = corrections['corrected_par']['scale_factor']
-            dba = processing.recalc_par(
+            dba = ooidac.processing.par.recalc_par(
                 dba, **var_processing['corrected_par']
                 # sensor_dark=par_sensor_dark,
                 # scale_factor=par_sf
@@ -327,7 +332,7 @@ def main(args):
                 wavelength = 700.0
                 bb_sensor = 'sci_flbbcd_bb_units'
 
-            dba = processing.backscatter_total(
+            dba = ooidac.processing.fluorometer.backscatter_total(
                 dba, bb_sensor, var_name, **bksctr_args)
             if dba is None:
                 continue
@@ -362,7 +367,7 @@ def main(args):
         if file_check.dav_sensors:
             # get segment mean time, segment mean lat, and segment mean lon
             # (underwater portion only)
-            seg_time, seg_lat, seg_lon = processing.get_segment_time_and_pos(
+            seg_time, seg_lat, seg_lon = ooidac.processing.velocity.get_segment_time_and_pos(
                 dba)
             if seg_time is None or seg_lat is None or seg_lon is None:
                 break
@@ -374,7 +379,7 @@ def main(args):
             # segement file.
             dba_index = dba_files.index(dba_file)
             next2files = dba_files[dba_index + 1:dba_index + 3]
-            vx, vy = processing.get_u_and_v(dba, check_files=next2files)
+            vx, vy = ooidac.processing.velocity.get_u_and_v(dba, check_files=next2files)
 
             scalars.extend([seg_time, seg_lat, seg_lon, vx, vy])
 
