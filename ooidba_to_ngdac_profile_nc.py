@@ -122,8 +122,9 @@ def main(args):
         files_to_run = set(dba_files2).difference(
             status.info['files_processed'])
         files_to_run = list(files_to_run)
-        # save copy of list of profiles created for printout at the end
-        already_processed = status.info['profiles_created'].copy()
+        # save a list of profiles created basenames for printout at the end
+        already_processed = list(map(
+            os.path.basename, status.info['profiles_created']))
 
     if files_to_run:
         n_skipped = len(files_to_run) - len(dba_files)
