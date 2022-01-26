@@ -16,7 +16,7 @@ class Status(object):
                 "history": "{:s}: dataset created.".format(now_tstr),
                 "date_created": now_tstr,
                 "date_modified": now_tstr,
-                "date_issued": "",
+                "date_issued": now_tstr,
                 "version": "1.0",
                 "uuid": "",
                 #"raw_directory": raw_data_path,

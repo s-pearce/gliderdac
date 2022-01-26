@@ -131,7 +131,7 @@ def main(args):
         logging.debug("Skipping {:d} files already run".format(n_skipped))
         files_to_run.sort(key=sort_function)
     else:
-        logging.debug("No new files to run.")
+        logging.info("No new files to run, exiting.")
         return 0
 
 
