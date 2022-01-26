@@ -59,10 +59,13 @@ A. For a recalculation using the MkII calculation (previous to using the
             "valid_max": 500.0,
             "valid_min": 0.0,
             "calculation_type": "MkII"
+            }
         "dimension": "time",
         "nc_var_name": "dissolved_oxygen",
         "type": "f8",
         "processing": {
+            "calculation_type": "MkII",
+            "cal_coefs": {
                 "C": [
                     -2.822802e-06, -6.776306e-06, 0.001803907, -0.1930332, 0.0006291334,
                     -2.982824e-07, 10.49904, -0.0545574, 9.256498e-05, -4.397045e-07,
@@ -83,7 +86,6 @@ A. For a recalculation using the MkII calculation (previous to using the
             }
         }
     },
-
 
 
 
@@ -123,15 +125,18 @@ Edit the JSON entry in sensor_defs.json for that deployment to look like:
         "nc_var_name": "dissolved_oxygen",
         "type": "f8",
         "processing": {
-            "SVUFoilCoef": [
-                2.677422E-03,
-                1.151494E-04,
-                2.177496E-06,
-                2.289442E+02,
-                -4.103772E-01,
-                -5.843925E+01,
-                4.550254E+00
-            ],
-            "ConcCoef": [-2.562374E+00, 1.079771E+00]
+            "calculation_type": "SVU",
+            "cal_coefs": {
+                "SVUFoilCoef": [
+                    2.677422E-03,
+                    1.151494E-04,
+                    2.177496E-06,
+                    2.289442E+02,
+                    -4.103772E-01,
+                    -5.843925E+01,
+                    4.550254E+00
+                ],
+                "ConcCoef": [-2.562374E+00, 1.079771E+00]
+            }
         }
     },
