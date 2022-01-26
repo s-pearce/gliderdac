@@ -112,21 +112,32 @@ def main(args):
     #         status = json.load(fid)
     status = Status(status_path)
 
-    # get the next profile id if this dataset has been run before.
-    # ToDo: for now this works for realtime, but it should be changed to
-    #  exclude cases where you might re-run a recovered dataset and clobber.
-    if status.info['next_profile_id'] and start_profile_id > 0:
-        start_profile_id = status.info['next_profile_id']
-
     # eliminate files that have already run
     if clobber:
         files_to_run = dba_files
         status.update_modified_date()
+        already_processed = []  # see else for description
     else:
         dba_files2 = list(map(os.path.abspath, dba_files))
-        files_to_run = set(dba_files2).difference(status.info['files_processed'])
+        files_to_run = set(dba_files2).difference(
+            status.info['files_processed'])
         files_to_run = list(files_to_run)
-    files_to_run.sort(key=sort_function)
+        # save copy of list of profiles created for printout at the end
+        already_processed = status.info['profiles_created'].copy()
+
+    if files_to_run:
+        n_skipped = len(files_to_run) - len(dba_files)
+        logging.debug("Skipping {:d} files already run".format(n_skipped))
+        files_to_run.sort(key=sort_function)
+    else:
+        logging.debug("No new files to run.")
+        return 0
+
+
+    # get the next profile id if this dataset has been run before.
+    if status.info['next_profile_id'] and start_profile_id > 0 and not clobber:
+        start_profile_id = status.info['next_profile_id']
+
 
     # Create the Trajectory NetCDF writer
     ncw = NetCDFWriter(
@@ -469,8 +480,9 @@ def main(args):
     # Print the list of files created
     sys.stdout.write('Profiles NC files written:\n')
     for output_nc_file, source_dba in status.data_map:
-        # os.chmod(os.path.join(output_path, output_nc_file), 0o664)
-        sys.stdout.write('\t{:s} -> {:s}\n'.format(source_dba, output_nc_file))
+        if output_nc_file not in already_processed:
+            sys.stdout.write('\t{:s} -> {:s}\n'.format(
+                source_dba, output_nc_file))
 
     return 0
 
