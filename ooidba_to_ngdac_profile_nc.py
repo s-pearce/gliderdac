@@ -336,7 +336,7 @@ def main(args):
                     'with the glider sensor name to use for '
                     'processing.'.format(var_name)
                 )
-                bb_sensor = bksctr_args.pop('source_sensor')
+                bb_sensor = bksctr_args.get('source_sensor')
 
             else:
                 # for now assume we are using flbbcds with 700 nm wavelength as
