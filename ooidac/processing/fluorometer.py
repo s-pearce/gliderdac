@@ -587,6 +587,40 @@ def recalc_chlor(dba, dark_offset, scale_factor):
     return dba
 
 
+def recalc_cdom(dba, dark_offset, scale_factor):
+    """ Recalculates CDOM from the raw signal
+
+    :param dba: GliderData instance
+    :param dark_offset: Dark Offset calibration parameter
+    :param scale_factor: Scale Factor calibration parameter
+    :return: The GliderData instance with the new parameter added
+    """
+    if 'sci_flbbcd_cdom_sig' not in dba.sensor_names:
+        logger.warning(
+            "sci_flbbcd_cdom_sig is not present to recalculate CDOM. "
+            "Filling with NaNs instead.")
+        # This MUST return a variable called `corrected_cdom` or else the
+        # code will not continue with the rest of the data, so this returns
+        # `corrected_cdom` full of nans since it cannot find the raw signal
+        nancdom = deepcopy(dba['sci_flbbcd_cdom_units'])
+        nancdom['sensor_name'] = "corrected_cdom"
+        nancdom['data'] = np.full(len(dba), np.nan)
+        dba.add_data(nancdom)
+        return _add_nan_variable(
+                dba, "corrected_cdom", "sci_flbbcd_cdom_units")
+    cdom_sig = dba.getdata('sci_flbbcd_cdom_sig')
+    cdom_units = deepcopy(dba['sci_flbbcd_cdom_units'])
+    new_cdom = scale_factor * (cdom_sig - dark_offset)
+    cdom_units['data'] = new_cdom
+    cdom_units['attrs']['comment'] = (
+        "CDOM recalculated from signal using calibration parameters")
+    cdom_units['sensor_name'] = "corrected_cdom"
+    cdom_units['attrs']['source_sensor'] = "sci_flbbcd_cdom_sig"
+    dba.add_data(cdom_units)
+
+    return dba
+
+
 def backscatter_total(gldata, src_sensor, var_name, **kwargs):
     """Calculate total backscatter
 

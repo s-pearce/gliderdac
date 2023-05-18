@@ -1,0 +1,50 @@
+How To Correct/Recalculate CDOM Data from raw signal counts in the DAC code:
+
+For a recalculation of CDOM from raw instrument signal counts according to the
+manual and calibration certificate for the WETLabs ECO Puck FLBBCD follow these
+steps.
+
+Edit the CDOM section JSON entry in sensor_defs.json for the deployment you 
+want to recalculate by:
+    1. Changing the name of the entry from "sci_flbbcd_cdom_units" to
+    "corrected_cdom"
+    2. Adding a "processing" dictionary to the "corrected_cdom" dictionary (not
+    under "attrs"). In this example it is inserted after the "type" entry at 
+    the bottom.
+    3. Add "dark_offset" and "scale_factor" (ug/L/counts) entries to the
+    "processing" dictionary where "dark_offset" and the "scale_factor" entries
+    are the "Dark Counts" and "Scale Factor" calibration values found in the 
+    ECO CDOM Fluorometer Characterization Sheet from the relevant calibration 
+    certificate for this instrument-deployment combination.
+
+    Here is an example:
+        Note: The "comment" entry under "attrs" here has also been added for this
+        example, but is not required.
+
+    "corrected_cdom": {
+        "attrs": {
+            "_FillValue": NaN,
+            "accuracy": " ",
+            "ancillary_variables": "instrument_flbbcd",
+            "comment": "CDOM recalculated from signal using calibration parameters due to incorrect parameters used during deployment",
+            "instrument": "instrument_flbbcd",
+            "long_name": "Fluorometric CDOM Concentration",
+            "OOI_data_product_name": "CDOMFLO",
+            "OOI_data_level": "L1a",
+            "observation_type": "measured",
+            "platform": "platform",
+            "precision": " ",
+            "resolution": " 0.092",
+            "standard_name": "concentration_of_colored_dissolved_organic_matter_in_sea_water_expressed_as_equivalent_mass_fraction_of_quinine_sulfate_dihydrate",
+            "units": "ppb",
+            "valid_max": 375.0,
+            "valid_min": 0.0
+        },
+        "dimension": "time",
+        "nc_var_name": "CDOM",
+        "type": "f8",
+        "processing": {
+            "dark_offset": 50,
+            "scale_factor": 0.0844
+        }
+    },

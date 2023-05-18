@@ -308,8 +308,14 @@ def main(args):
         if 'corrected_chlor' in ncw.config_sensor_defs:
             dba = ooidac.processing.fluorometer.recalc_chlor(
                 dba, **var_processing['corrected_chlor']
-                # dark_offset=corrections['corrected_chlor']['dark_offset'],
-                # scale_factor=corrections['corrected_chlor']['scale_factor']
+            )
+            if dba is None:
+                continue
+
+        # Re_calculate CDOM
+        if 'corrected_cdom' in ncw.config_sensor_defs:
+            dba = ooidac.processing.fluorometer.recalc_cdom(
+                dba, **var_processing['corrected_cdom']
             )
             if dba is None:
                 continue
