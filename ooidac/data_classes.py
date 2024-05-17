@@ -138,6 +138,15 @@ class GliderData(object):
             raise SensorError("Sensor {:s} is not available".format(item))
 
     def getdataslice(self, items):
+        """data array subset sliced using variable names
+
+        Use similar .slicedata instead to return a new GliderData
+        instance.
+        """
+        # note to self: I tried to rewrite this using array methods but
+        # I think because of the overhead, it was actually a lot slower
+        # for small numbers of items, which will most often be the case
+        # and only got about equal for ~200 items.  So leave this as is.
         if isinstance(items, str):
             items = [items]
         idxs = []
@@ -147,6 +156,10 @@ class GliderData(object):
                 idxs.append(idx)
             else:
                 raise SensorError("Sensor {:s} is not available".format(item))
+        # If you extract a single column with a 1 element list index, it
+        # returns a 2D array.  If you use an int column index it returns
+        # a 1D array. I'm not sure why I chose that behavior, but I
+        # may change it later (comment written years after the function)
         if len(idxs) == 1:
             idxs = idxs[0]
         return self._data[:, idxs]

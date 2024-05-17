@@ -253,17 +253,22 @@ def reduce_to_sci_data(gldata):
 
 
 def all_sci_indices(gldata):
-    """
+    """Indices for all timestamps with science instrument values
 
-    :param gldata: A GliderData instance
-    :return:
+    parameters
+    ----------
+    gldata : GliderData instance
+        The Slocum glider data set
+
+    returns
+    -------
+    indices : array
+        The indices for any science values
     """
-    sci_indices = np.array([], dtype=np.int64)
-    for sci_sensor in DATA_CONFIG_LIST:
-        sci_data = gldata.getdata(sci_sensor)
-        sci_ii = np.flatnonzero(np.isfinite(sci_data))
-        sci_indices = np.union1d(sci_indices, sci_ii)
-    return sci_indices
+    # 2024-05-17 updated to use array methods to find the indices
+    scidata = gldata.getdataslice(DATA_CONFIG_LIST)
+    sci_indices = np.any(np.isfinite(scidata), axis=1)
+    return np.flatnonzero(sci_indices)
 
 
 def remove_sci_init_zeros(gldata, available_sensors):
