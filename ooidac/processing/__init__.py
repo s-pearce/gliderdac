@@ -26,7 +26,8 @@ def create_llat_sensors(
     if not time_sensor:
         return
     # Select the pressure sensor
-    pressure_sensor = select_pressure_sensor(dba, pressuresensor=pressuresensor)
+    pressure_sensor = select_pressure_sensor(
+        dba, time_sensor=time_sensor, pressuresensor=pressuresensor)
     # Select the depth sensor
     depth_sensor = select_depth_sensor(dba, depthsensor=depthsensor)
     # We must have either a pressure_sensor or depth_sensor to continue
@@ -69,6 +70,17 @@ def create_llat_sensors(
         else:
             logging.warning(
                 'No pressure sensor found for calculating depth')
+
+    # If not using pressure to create depth, interpolate depth to all
+    # science timestamps for coordinates.  Pressure already interpolated.
+    else:
+        idepth = np.full_like(depth_sensor['data'], np.nan)
+        depth_ii = np.isfinite(depth_sensor['data'])
+        idepth[sci_indices] = np.interp(
+            time_sensor['data'][sci_indices],
+            time_sensor['data'][depth_ii],
+            depth_sensor['depth'][depth_ii])
+        depth_sensor['data'] = idepth
 
     # Append the llat variables
     dba.add_data(time_sensor)
@@ -118,8 +130,9 @@ def select_time_sensor(dba, timesensor=None):
 
 # ToDo: parts or all of this would be better suited in a configuration class
 #  or module
-def select_pressure_sensor(dba, pressuresensor=None):
-    """Returns selected pressure sensor name and pressure array in decibars"""
+def select_pressure_sensor(dba, time_sensor, pressuresensor=None):
+    """Returns selected pressure sensor name and pressure array in decibars
+    as a coordinate variable interpolated to all science timestamps"""
 
     # List of available dba sensors
     dba_sensors = dba.sensor_names
@@ -143,15 +156,32 @@ def select_pressure_sensor(dba, pressuresensor=None):
     pressure_sensor = deepcopy(dba[pressuresensor])
     if not pressure_sensor:
         return
+
+    # Convert the pressure sensor from bar to dbar
+    pressure = pressure_sensor['data'] * 10
+
+    # interpolate to all science timestamps for the coordinate pressure, so
+    # they each have a depth/pressure value, timestamp, and lat and lon.
+    ipressure = np.full_like(pressure, np.nan)
+    sci_indices = all_sci_indices(dba)  # indices at any non-nan science vals
+    pres_ii = np.isfinite(pressure)
+    ipressure[sci_indices] = np.interp(
+        time_sensor['data'][sci_indices],
+        time_sensor['data'][pres_ii],
+        pressure[pres_ii],
+        left = pressure[0],
+        right = pressure[-1]
+        )  # added left and right in case in science timestamps are just
+        # outside the pressure records.  Because it is science timestamps only
+        # it won't extrapolate wildly into times with no science data sampling.
+
+    pressure_sensor['data'] = ipressure
     pressure_sensor['sensor_name'] = 'llat_pressure'
     pressure_sensor['attrs']['source_sensor'] = pressuresensor
     pressure_sensor['attrs']['comment'] = (
-        u'Alias for {:s}, multiplied by 10 to convert from bar to dbar'.format(
-            pressuresensor)
+        u'Derived from {:s}, converted from bar to dbar, and interpolated to '
+        u'science timestamps'.format(pressuresensor)
     )
-
-    # Convert the pressure sensor from bar to dbar
-    pressure_sensor['data'] = pressure_sensor['data'] * 10
     pressure_sensor['attrs']['units'] = 'dbar'
 
     return pressure_sensor

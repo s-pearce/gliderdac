@@ -4,7 +4,8 @@ import logging
 import numpy as np
 from gsw import SP_from_C, SA_from_SP, CT_from_t, rho, z_from_p
 from gsw.density import sound_speed
-
+from ooidac.constants import SLOCUM_REALTIME_MODE_EXTENSIONS
+from ooidac.processing import all_sci_indices
 
 def create_practical_salinity_sensor(reader):
 
@@ -148,6 +149,47 @@ def ctd_data(dba, ctd_sensors):
                     var['sensor_name'])
             )
             return
+
+    # There is a bug in the tbdlist.dat decimation process on the gliders
+    # that occasionally misaligns the CTD variables in time on TBD files.
+    # This isn't a problem in EBD files.  This if statement interpolates
+    # to correct this.  For ease of use, it will just overwrite the original
+    # 'sci_water_temp', 'sci_water_cond', and 'sci_ctd41cp_timestamp'.  No
+    # need to overwrite 'sci_water_pressure' because we use the coordinate
+    # pressure which was already interpolated to all timestamps.
+    ext = dba.file_metadata['filename_extension']
+    if ext in SLOCUM_REALTIME_MODE_EXTENSIONS:
+        # I'm just going to go ahead and assume if ctd data is present,
+        # these variables are there too.  I know this is bad practice,
+        # but I plan to change most of this eventually anyway.
+        rawpres = dba['sci_water_pressure'] or dba['m_water_pressure']
+        sts = dba['sci_m_present_time']['data']
+
+        cond_ii = np.isfinite(cond['data'])
+        temp_ii = np.isfinite(temp['data'])
+        pres_ii = np.isfinite(rawpres['data'])
+
+        ctd_indices = np.logical_or(cond_ii, np.logical_or(temp_ii, pres_ii))
+
+        icond = np.full_like(cond['data'], np.nan)
+        itemp = np.full_like(temp['data'], np.nan)
+
+        icond[ctd_indices] = np.interp(
+            sts[ctd_indices], sts[cond_ii], cond['data'][cond_ii])
+        itemp[ctd_indices] = np.interp(
+            sts[ctd_indices], sts[temp_ii], temp['data'][temp_ii])
+
+        dba['sci_water_cond']['data'] = icond
+        dba['sci_water_temp']['data'] = itemp
+
+        # if the ctd timestamp is present, interpolate it too
+        if 'sci_ctd41cp_timestamp' in dba.sensor_names:
+            tctd = dba['sci_ctd41cp_timestamp']
+            tctd_ii = np.isfinite(tctd['data'])
+            itctd = np.full_like(tctd['data'], np.nan)
+            itctd[ctd_indices] = np.interp(
+                sts[ctd_indices], sts[tctd_ii], tctd['data'][tctd_ii])
+            tctd['data'] = itctd
 
     # Calculate mean llat_latitude and mean llat_longitude
     mean_lat = np.nanmean(lat['data'])
