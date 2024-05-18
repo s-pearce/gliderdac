@@ -112,7 +112,7 @@ def calculate_depth(pressure, latitude):
     """Calculates depth from pressure (dbar) and latitude.  By default, gsw returns depths as negative.  This routine
     returns the absolute values for positive depths.
 
-    Paramters:
+    Parameters:
         pressure (decibars)
         latitude (decimal degrees)
 
@@ -156,7 +156,7 @@ def ctd_data(dba, ctd_sensors):
     # to correct this.  For ease of use, it will just overwrite the original
     # 'sci_water_temp', 'sci_water_cond', and 'sci_ctd41cp_timestamp'.  No
     # need to overwrite 'sci_water_pressure' because we use the coordinate
-    # pressure which was already interpolated to all timestamps.
+    # pressure which is already interpolated to all timestamps.
     ext = dba.file_metadata['filename_extension']
     if ext in SLOCUM_REALTIME_MODE_EXTENSIONS:
         # I'm just going to go ahead and assume if ctd data is present,
@@ -180,7 +180,14 @@ def ctd_data(dba, ctd_sensors):
             sts[ctd_indices], sts[temp_ii], temp['data'][temp_ii])
 
         dba['sci_water_cond']['data'] = icond
+        dba['sci_water_cond']['attrs']['comment'] = (
+            "Interpolated to all CTD timestamps because of "
+            "TBD decimation misalignments")
+
         dba['sci_water_temp']['data'] = itemp
+        dba['sci_water_temp']['attrs']['comment'] = (
+            "Interpolated to all CTD timestamps because of "
+            "TBD decimation misalignments")
 
         # if the ctd timestamp is present, interpolate it too
         if 'sci_ctd41cp_timestamp' in dba.sensor_names:

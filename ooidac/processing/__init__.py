@@ -58,10 +58,10 @@ def create_llat_sensors(
             depth_sensor = {
                 'sensor_name': 'llat_depth',
                 'attrs': {
-                    'source_sensor': 'llat_pressure,llat_latitude',
+                    'source_sensor': '`pressure`,`latitude`',
                     'comment': (
-                        u'Calculated from llat_pressure and '
-                        u'llat_latitude using gsw.z_from_p'
+                        u'Calculated from `pressure` and '
+                        u'`latitude` using gsw.z_from_p'
                     )
                 },
                 'data': -gsw.z_from_p(
@@ -76,6 +76,7 @@ def create_llat_sensors(
     else:
         idepth = np.full_like(depth_sensor['data'], np.nan)
         depth_ii = np.isfinite(depth_sensor['data'])
+        sci_indices = all_sci_indices(dba)  # indices at any non-nan science vals
         idepth[sci_indices] = np.interp(
             time_sensor['data'][sci_indices],
             time_sensor['data'][depth_ii],
