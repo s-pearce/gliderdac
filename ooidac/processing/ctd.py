@@ -181,13 +181,13 @@ def ctd_data(dba, ctd_sensors):
 
         dba['sci_water_cond']['data'] = icond
         dba['sci_water_cond']['attrs']['comment'] = (
-            "Interpolated to all CTD timestamps because of "
-            "TBD decimation misalignments")
+            "Interpolated to all CTD timestamps to re-align "
+            "realtime file decimation misalignments")
 
         dba['sci_water_temp']['data'] = itemp
         dba['sci_water_temp']['attrs']['comment'] = (
-            "Interpolated to all CTD timestamps because of "
-            "TBD decimation misalignments")
+            "Interpolated to all CTD timestamps to re-align "
+            "realtime file decimation misalignments")
 
         # if the ctd timestamp is present, interpolate it too
         if 'sci_ctd41cp_timestamp' in dba.sensor_names:
@@ -208,7 +208,9 @@ def ctd_data(dba, ctd_sensors):
     # Add salinity to the dba
     dba['salinity'] = {
         'sensor_name': 'salinity',
-        'attrs': {},  # these get filled in later by the netCDF writer
+        'attrs': {
+            "source_sensor": "sci_water_cond,sci_water_temp,pressure"
+        },  # these get filled in later by the netCDF writer
         'data': prac_sal
     }
 
@@ -218,7 +220,9 @@ def ctd_data(dba, ctd_sensors):
     # Add density to the dba
     dba['density'] = {
         'sensor_name': 'density',
-        'attrs': {},  # these get filled in later by the netCDF writer
+        'attrs': {
+            "source_sensor": "sci_water_cond,sci_water_temp,pressure,latitude,longitude"
+        },  # these get filled in later by the netCDF writer
         'data': density
     }
     return dba

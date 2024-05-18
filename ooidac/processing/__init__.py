@@ -58,7 +58,7 @@ def create_llat_sensors(
             depth_sensor = {
                 'sensor_name': 'llat_depth',
                 'attrs': {
-                    'source_sensor': '`pressure`,`latitude`',
+                    'source_sensor': 'pressure,latitude',
                     'comment': (
                         u'Calculated from `pressure` and '
                         u'`latitude` using gsw.z_from_p'
