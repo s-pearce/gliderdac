@@ -10,6 +10,8 @@ from ooidac.constants import (
     SLOCUM_PRESSURE_SENSORS,
     SLOCUM_DEPTH_SENSORS)
 from configuration import DATA_CONFIG_LIST
+import sys
+import importlib
 
 logger = logging.getLogger(os.path.basename(__name__))
 
@@ -286,6 +288,7 @@ def remove_sci_init_zeros(gldata, available_sensors):
     :return: The same GliderData instance with any initialization zeros
     changed to NaNs
     """
+    # ToDo: update remove_sci_init_zeros to use faster numpy array methods
     zeros_ii = np.array([])
     for sensor in available_sensors:
         var = gldata.getdata(sensor)
@@ -295,11 +298,11 @@ def remove_sci_init_zeros(gldata, available_sensors):
             zeros_ii = np.flatnonzero(var == 0.0)
         else:
             var_zero_ii = np.flatnonzero(var == 0.0)
-            # intersection will find the timestamp where all of the science
+            # intersection will find the timestamp where all science
             # sensors are zero
             zeros_ii = np.intersect1d(zeros_ii, var_zero_ii)
     if len(zeros_ii) > 0:
-        gldata.update_data(available_sensors, zeros_ii, np.nan)
+        gldata.update_data(available_sensors, np.nan, zeros_ii)
     return gldata
 
 
