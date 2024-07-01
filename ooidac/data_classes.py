@@ -164,8 +164,54 @@ class GliderData(object):
             idxs = idxs[0]
         return self._data[:, idxs]
 
-    def update_data(self, items, row_indices, values):
-        row_indices = np.atleast_1d(row_indices)
+    # in case I need a simple version later, leaving this here
+    # def update_data(self, varname, values):
+    #     """Update a re-processed variable already in `sensor_names`
+    #     """
+    #     # I tried being smart with `row_indices` and multiple items to
+    #     # add, but it needs to be simpler and getting the shapes correct
+    #     # should be handled outside of this function.
+    #     if varname in self._sensor_names:
+    #         idx = self._sensor_names.index(varname)
+    #     else:
+    #         raise SensorError("Sensor {:s} is not available".format(varname))
+    #
+    #     self._data[:, idx] = values
+
+    def update_data(self, items, values, row_indices=None):
+        """Update data variables using variables names and values
+
+        params
+        ------
+        items : str or array-like
+            variable name or list of variable names to update
+        values : array
+            array of values to insert into the large data array and should
+            be shape (len(rows) x len(items)).
+        row_indices : array (optional)
+            an array of row_indices that will update the values.  The
+            row_indices will be the same for all variables in `items`.
+            If the row_indices differs for each variable, run
+            `update_data` for each updated variable separately.
+        """
+        # if item is a string (1 variable name), make it a list
+        if isinstance(items, str):
+            items = [items]
+
+        # make sure row_indices is 2-dimensional for indexing
+        if not row_indices:
+            row_indices = np.arange(self._data.shape[0])
+
+        n = row_indices.size
+        row_indices = row_indices.reshape(n, 1)
+
+        # gather the index for each variable name in items
+        # ToDo: if ever a variable name is dropped, should either fail
+        #   if values has the same number of columns as items or
+        #   should not update columns where item variable name is dropped.
+        #   The only reason this allows row indices is because of
+        #   the remove_sci_init_zeros function, which should be updated
+        #   to use array numpy methods anyway.
         col_idxs = []
         for item in items:
             if item in self._sensor_names:
@@ -174,9 +220,16 @@ class GliderData(object):
             else:
                 raise SensorError("Sensor {:s} is not available".format(item))
         col_idxs = np.atleast_1d(col_idxs)
-        # Don't want a try statement here, I want the np.array error to raise
-        # if `values` does not fit into the indices given
-        self._data[row_indices.reshape(len(row_indices), 1), col_idxs] = values
+        m = col_idxs.size
+
+        # if `values` isn't the right shape (e.g. when a 1D vector),
+        # reshape it
+        if isinstance(values, np.ndarray) and values.shape != (n, m):
+            values = values.reshape(n, m)
+
+        # Don't want a try statement here, I want the np.array error to
+        # raise if `values` does not fit into the indices given
+        self._data[row_indices, col_idxs] = values
 
     def _get_dataparticle(self, item):
         if item in self._sensor_names:
