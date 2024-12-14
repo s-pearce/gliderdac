@@ -199,7 +199,7 @@ class GliderData(object):
             items = [items]
 
         # make sure row_indices is 2-dimensional for indexing
-        if not row_indices:
+        if row_indices is None:
             row_indices = np.arange(self._data.shape[0])
 
         n = row_indices.size
