@@ -521,6 +521,11 @@ def do2_SVU(calphase, temp, csv, conc_coef=np.array([0.0, 1.0]), salt=0):
     Pc = csv[:, 5] + csv[:, 6]*calphase
     DO = ((P0/Pc) - 1) / Ksv
 
+    # apply refurbishment calibration
+    # conc_coef can be a 2D array of either 1 row or DO.size rows.
+    DO = conc_coef[:, 0] + conc_coef[:, 1] * DO
+
+    # If reference salinity is not 0, run a partial salinity compensation
     # scaled temperature
     Ts = np.log((ST_K - temp) / (KELVIN_OFFSET + temp))
 
@@ -534,9 +539,7 @@ def do2_SVU(calphase, temp, csv, conc_coef=np.array([0.0, 1.0]), salt=0):
 
     DO = DO * oxysol
 
-    # apply refurbishment calibration
-    # conc_coef can be a 2D array of either 1 row or DO.size rows.
-    DO = conc_coef[:, 0] + conc_coef[:, 1] * DO
+
     return DO
 
 
