@@ -278,12 +278,6 @@ def main(args):
             if dba is None:
                 continue
 
-        # Fill m_water_depth and m_altitude to science timestamps
-        if 'm_water_depth' in dba.sensor_names and 'm_altitude' in dba.sensor_names:
-            dba = ooidac.processing.altitude.water_depth(dba)
-            if dba is None:
-                continue
-
         # Convert `sci_water_cond/temp/ & pressure` to `salinity` and `density`
         # and adds them back to the data instance with metadata attributes.
         # Requires `llat_latitude/longitude` variables are in the data
