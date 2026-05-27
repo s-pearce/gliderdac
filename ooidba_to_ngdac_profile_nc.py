@@ -14,6 +14,7 @@ import ooidac.processing.fluorometer
 import ooidac.processing.oxygen
 import ooidac.processing.par
 import ooidac.processing.velocity
+import ooidac.processing.altitude
 from ooidac.writers.netCDFwriter import NetCDFWriter
 
 from ooidac.constants import NETCDF_FORMATS, LLAT_SENSORS
