@@ -453,7 +453,7 @@ def main(args):
         for profile in profiles:
             # want to add water depth only on a profile basis.
             if 'm_water_depth' in profile.sensor_names:
-                profile = process.altitude.water_depth(profile)
+                profile = processing.altitude.water_depth(profile)
                 if profile is None:
                     continue
             profile = processing.reduce_to_sci_data(profile)
