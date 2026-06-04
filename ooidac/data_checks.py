@@ -15,6 +15,7 @@ class FileCheck(object):
     any_science_data = False
     avail_sci_data = []
     dav_sensors = False
+    min_dive = False
     file_good = False
 
 
@@ -27,8 +28,12 @@ def check_file_goodness(gldata):
     fc.dav_sensors = check_for_dav_sensors(gldata)
     if len(fc.avail_sci_data) > 0:
         fc.any_science_data = True
-    fc.file_good = fc.required_sensors and fc.any_science_data
-
+    fc.min_dive = check_if_dive(gldata)
+    fc.file_good = (
+        fc.required_sensors and 
+        fc.any_science_data and 
+        fc.min_dive)
+    
     return fc
 
 

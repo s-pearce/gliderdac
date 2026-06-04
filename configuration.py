@@ -64,7 +64,7 @@ MIN_DATA_VALS = 5
 
 # The minimum required depth for the glider to dive to consider a profile or
 # a data file to be valid
-MIN_DIVE_DEPTH = 2.0
+MIN_DIVE_DEPTH = 5.0
 
 
 # PROCESSING_DIR = "C:\\Users\\spearce\\data\\dac\\processing_test"

@@ -6,6 +6,7 @@ import os
 
 from ooidac import boxcar_smooth_dataset
 
+from configuration import MIN_DATA_VALS
 from ooidac.utilities import fwd_fill
 from ooidac.processing import all_sci_indices
 import profile_filters
@@ -103,13 +104,16 @@ class Profiles(object):
             starting_index = sci_indices[0]
             ending_index = sci_indices[-1]
         else:
-            return  # no science_indices, then we don't care to finish
+            return None # no science_indices, then we don't care to finish
 
         depth_ii = depth_ii[
             np.logical_and(
                 depth_ii >= starting_index,
                 depth_ii <= ending_index)
         ]
+
+        if len(depth_ii) < MIN_DATA_VALS:
+            return None
 
         # ---Create a smoothed depth timeseries for finding inflections ------#
 
